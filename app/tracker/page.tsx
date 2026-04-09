@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -61,22 +61,21 @@ export default function TrackerPage() {
     };
   }, [session]);
 
-  if (!hasHydrated || session === null) {
-    return null;
-  }
-
-  const buffetPrice = session.buffetPrice;
-  const appetiteBudget = session.appetiteBudget;
+  // Derived values — safe to compute with zero defaults when session is
+  // null, so the hook calls below stay unconditional (rules-of-hooks).
+  const buffetPrice = session?.buffetPrice ?? 0;
+  const appetiteBudget = session?.appetiteBudget ?? 0;
   const rawPercent =
     buffetPrice > 0 ? (totals.totalValue / buffetPrice) * 100 : 0;
   const cappedPercent = Math.min(100, Math.max(0, rawPercent));
-  const wins = totals.totalValue >= buffetPrice;
+  const wins = buffetPrice > 0 && totals.totalValue >= buffetPrice;
   // Tone (color) reads from the TARGET margin, not the displayed/tweened
   // value, so the color doesn't flicker as the tween crosses zero.
   const marginIsPositive = totals.marginValue >= 0;
 
   // Animated displays. The underlying state and the e2e regex still see
   // toFixed(2)-formatted strings, just smoothly approaching their target.
+  // These hooks MUST be called before any early return (rules-of-hooks).
   const displayedTotal = useAnimatedNumber(totals.totalValue);
   const displayedPercent = useAnimatedNumber(rawPercent);
   const displayedMargin = useAnimatedNumber(totals.marginValue);
@@ -85,17 +84,29 @@ export default function TrackerPage() {
   ).toFixed(2)}`;
 
   // Win-moment pulse: fires only on the false → true transition. The first
-  // render seeds prevWinsRef so resuming an already-winning meal doesn't
-  // pulse on hydration. winPulseKey is bumped on each transition and used as
-  // a React key so the animated element remounts and the CSS keyframe re-fires.
-  const prevWinsRef = useRef(wins);
+  // render seeds prevWins with the current wins value so resuming an
+  // already-winning meal doesn't pulse on hydration. winPulseKey is bumped
+  // on each transition and used as a React key so the animated element
+  // remounts and the CSS keyframe re-fires.
+  //
+  // Implemented as "adjust state during render" (state + conditional
+  // setState in render body) rather than a useEffect, because the lint
+  // config forbids set-state-in-effect. React discards the in-progress
+  // render and restarts with the updated state.
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
   const [winPulseKey, setWinPulseKey] = useState(0);
-  useEffect(() => {
-    if (!prevWinsRef.current && wins) {
+  const [prevWins, setPrevWins] = useState(wins);
+  if (prevWins !== wins) {
+    setPrevWins(wins);
+    if (!prevWins && wins) {
       setWinPulseKey((k) => k + 1);
     }
-    prevWinsRef.current = wins;
-  }, [wins]);
+  }
+
+  // All hooks are called above. Only now is it safe to bail.
+  if (!hasHydrated || session === null) {
+    return null;
+  }
 
   function handleFinish() {
     finishMeal();
@@ -103,59 +114,48 @@ export default function TrackerPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 lg:px-8 lg:grid lg:grid-cols-3 lg:gap-8">
+    <main className="mx-auto w-full max-w-6xl px-4 lg:px-8 lg:grid lg:grid-cols-3 lg:gap-10">
       <section
         aria-label="Live totals"
         aria-live="polite"
-        className="sticky top-14 z-30 -mx-4 border-b bg-background/80 px-4 py-4 backdrop-blur supports-backdrop-filter:bg-background/60 lg:hidden"
+        className="sticky top-16 z-30 -mx-4 border-b border-[rgba(25,28,31,0.08)] bg-white px-4 py-5 lg:hidden dark:border-white/10 dark:bg-[#191c1f]"
       >
         <div key={`mobile-pulse-${winPulseKey}`} className={winPulseKey > 0 ? "ayce-win-pulse" : undefined}>
           <Progress
             value={cappedPercent}
             aria-label="Money worth progress"
-            className={
-              wins
-                ? "[&_[data-slot=progress-indicator]]:bg-emerald-500"
-                : undefined
-            }
           />
         </div>
-        <div className="mt-2 flex items-baseline justify-between gap-3 text-sm tabular-nums">
-          <span className="font-medium text-foreground">
+        <div className="mt-3 flex items-baseline justify-between gap-3 text-sm tracking-[0.01em] tabular-nums">
+          <span className="font-medium text-[#191c1f] dark:text-white">
             ${displayedTotal.toFixed(2)} / ${buffetPrice.toFixed(2)}
           </span>
-          <span
-            className={
-              wins
-                ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                : "text-muted-foreground"
-            }
-          >
+          <span className="font-semibold text-[#191c1f] dark:text-white">
             {Math.round(displayedPercent)}%
           </span>
         </div>
         <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-muted-foreground">Eaten</dt>
-            <dd className="font-semibold tabular-nums text-foreground">
+            <dt className="text-[#505a63] dark:text-[#8d969e]">Eaten</dt>
+            <dd className="font-semibold tabular-nums text-[#191c1f] dark:text-white">
               ${displayedTotal.toFixed(2)}
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-muted-foreground">Margin</dt>
+            <dt className="text-[#505a63] dark:text-[#8d969e]">Margin</dt>
             <dd
               className={`font-semibold tabular-nums ${
                 marginIsPositive
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-destructive"
+                  ? "text-[#191c1f] dark:text-white"
+                  : "text-[#e23b4a]"
               }`}
             >
               {formattedMargin}
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-muted-foreground">Fill</dt>
-            <dd className="font-semibold tabular-nums text-foreground">
+            <dt className="text-[#505a63] dark:text-[#8d969e]">Fill</dt>
+            <dd className="font-semibold tabular-nums text-[#191c1f] dark:text-white">
               {formatUnits(totals.unitsConsumed)} / {appetiteBudget}
             </dd>
           </div>
@@ -165,55 +165,47 @@ export default function TrackerPage() {
       <aside
         aria-label="Live totals"
         aria-live="polite"
-        className="hidden lg:col-span-1 lg:sticky lg:top-20 lg:self-start lg:flex lg:flex-col lg:gap-6 lg:py-8"
+        className="hidden lg:col-span-1 lg:sticky lg:top-24 lg:self-start lg:flex lg:flex-col lg:gap-8 lg:py-12"
       >
         <div key={`desktop-pulse-${winPulseKey}`} className={winPulseKey > 0 ? "ayce-win-pulse" : undefined}>
           <Progress
             value={cappedPercent}
             aria-label="Money worth progress"
-            className={`lg:h-3 ${
-              wins
-                ? "[&_[data-slot=progress-indicator]]:bg-emerald-500"
-                : ""
-            }`}
+            className="lg:h-3"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           <span
-            className={`font-heading text-5xl lg:text-6xl font-semibold tabular-nums ${
-              wins
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-foreground"
-            }`}
+            className="font-[var(--font-display)] text-6xl lg:text-7xl font-medium leading-none tracking-[-0.03em] tabular-nums text-[#191c1f] dark:text-white"
           >
             {Math.round(displayedPercent)}%
           </span>
-          <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="text-sm tracking-[0.01em] text-[#505a63] tabular-nums dark:text-[#8d969e]">
             ${displayedTotal.toFixed(2)} of ${buffetPrice.toFixed(2)}
           </span>
         </div>
         <dl className="flex flex-col">
-          <div className="flex items-baseline justify-between gap-2 border-t py-3">
-            <dt className="text-sm text-muted-foreground">Eaten</dt>
-            <dd className="text-base font-semibold tabular-nums text-foreground">
+          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Eaten</dt>
+            <dd className="text-base font-semibold tabular-nums text-[#191c1f] dark:text-white">
               ${displayedTotal.toFixed(2)}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t py-3">
-            <dt className="text-sm text-muted-foreground">Margin</dt>
+          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Margin</dt>
             <dd
               className={`text-base font-semibold tabular-nums ${
                 marginIsPositive
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-destructive"
+                  ? "text-[#191c1f] dark:text-white"
+                  : "text-[#e23b4a]"
               }`}
             >
               {formattedMargin}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t py-3">
-            <dt className="text-sm text-muted-foreground">Fill</dt>
-            <dd className="text-base font-semibold tabular-nums text-foreground">
+          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Fill</dt>
+            <dd className="text-base font-semibold tabular-nums text-[#191c1f] dark:text-white">
               {formatUnits(totals.unitsConsumed)} / {appetiteBudget}
             </dd>
           </div>
@@ -222,14 +214,15 @@ export default function TrackerPage() {
           <Button
             type="button"
             onClick={handleFinish}
-            className="h-12 w-full text-base"
+            size="lg"
+            className="w-full"
           >
             Finish meal
           </Button>
         ) : null}
       </aside>
 
-      <div className="py-5 lg:col-span-2 lg:py-8">
+      <div className="py-8 lg:col-span-2 lg:py-12">
         {session.library.length === 0 ? (
           <div className="mx-auto max-w-md">
             <EmptyState
@@ -240,7 +233,7 @@ export default function TrackerPage() {
             />
           </div>
         ) : (
-          <ul className="flex flex-col gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4">
+          <ul className="flex flex-col gap-4 lg:grid lg:grid-cols-2 xl:grid-cols-2 lg:gap-5">
             {session.library.map((item) => {
               const units = totals.unitsByItemId.get(item.id) ?? 0;
               const lineTotal = units * item.alaCarteValue;
@@ -250,17 +243,17 @@ export default function TrackerPage() {
                     <CardHeader>
                       <CardTitle>{item.name}</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      <div className="flex items-baseline justify-between gap-2 text-sm">
-                        <span className="tabular-nums text-muted-foreground">
+                    <CardContent className="flex flex-col gap-4">
+                      <div className="flex items-baseline justify-between gap-2 text-sm tracking-[0.01em]">
+                        <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
                           ${item.alaCarteValue.toFixed(2)} · fill{" "}
                           {item.fillFactor}/10
                         </span>
-                        <span className="tabular-nums text-foreground">
+                        <span className="tabular-nums text-[#191c1f] dark:text-white">
                           <span className="font-semibold">
                             {formatUnits(units)}
                           </span>{" "}
-                          <span className="text-muted-foreground">
+                          <span className="text-[#505a63] dark:text-[#8d969e]">
                             (${lineTotal.toFixed(2)})
                           </span>
                         </span>
@@ -269,26 +262,27 @@ export default function TrackerPage() {
                         <Button
                           type="button"
                           variant="outline"
+                          size="sm"
                           aria-label={`Remove one ${item.name}`}
                           onClick={() => logEaten(item.id, -1)}
                           disabled={units === 0}
-                          className="h-11 min-w-11 px-3 text-base"
                         >
                           −1
                         </Button>
                         <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           aria-label={`Add half a ${item.name}`}
                           onClick={() => logEaten(item.id, 0.5)}
-                          className="h-11 min-w-11 px-3 text-base"
                         >
                           +0.5
                         </Button>
                         <Button
                           type="button"
+                          size="sm"
                           aria-label={`Add one ${item.name}`}
                           onClick={() => logEaten(item.id, 1)}
-                          className="h-11 min-w-11 px-3 text-base"
                         >
                           +1
                         </Button>
@@ -302,11 +296,12 @@ export default function TrackerPage() {
         )}
 
         {session.library.length > 0 ? (
-          <div className="mt-6 lg:hidden">
+          <div className="mt-8 lg:hidden">
             <Button
               type="button"
               onClick={handleFinish}
-              className="h-12 w-full text-base"
+              size="lg"
+              className="w-full"
             >
               Finish meal
             </Button>
@@ -334,14 +329,14 @@ function EmptyState({
 }) {
   const router = useRouter();
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 px-4 py-12 text-center">
-      <p className="font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
+      <p className="font-medium text-[#191c1f] dark:text-white">{title}</p>
+      <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">{body}</p>
       <Button
         type="button"
         variant="outline"
         onClick={() => router.push(actionHref)}
-        className="mt-4 h-11 px-4 text-base"
+        className="mt-6"
       >
         {actionLabel}
       </Button>

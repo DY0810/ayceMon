@@ -79,54 +79,54 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-8 lg:py-16">
-      <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(0,480px)] lg:gap-16">
+    <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
+      <div className="grid items-start gap-12 lg:grid-cols-[1fr_minmax(0,520px)] lg:gap-20">
         <section className="hidden lg:block">
-          <h1 className="font-heading text-4xl font-semibold tracking-tight lg:text-5xl">
+          <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-6xl dark:text-white">
             Start a session
           </h1>
-          <p className="mt-4 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
             Tell us what the buffet costs and how hungry you are. We&apos;ll
             use this to figure out what combos beat the price.
           </p>
-          <ul className="mt-10 flex flex-col gap-4">
+          <ul className="mt-12 flex flex-col gap-5">
             {REQUIREMENTS.map(({ icon: Icon, label }) => (
               <li
                 key={label}
-                className="flex items-center gap-3 text-sm text-muted-foreground"
+                className="flex items-center gap-4 text-sm text-[#505a63] dark:text-[#8d969e]"
               >
-                <span className="inline-flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
-                  <Icon className="size-4" aria-hidden="true" />
+                <span className="inline-flex size-11 items-center justify-center rounded-full bg-[#f4f4f4] text-[#191c1f] dark:bg-[#262a2e] dark:text-white">
+                  <Icon className="size-5" aria-hidden="true" />
                 </span>
-                <span className="text-base text-foreground">{label}</span>
+                <span className="text-base text-[#191c1f] dark:text-white">{label}</span>
               </li>
             ))}
           </ul>
         </section>
 
-        <div className="lg:rounded-xl lg:bg-card lg:p-8 lg:ring-1 lg:ring-foreground/10">
-          <div className="mb-6 lg:mb-8">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight lg:hidden">
+        <div className="lg:rounded-[20px] lg:border lg:border-[rgba(25,28,31,0.08)] lg:bg-white lg:p-10 dark:lg:border-white/10 dark:lg:bg-[#191c1f]">
+          <div className="mb-8">
+            <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:hidden dark:text-white">
               Start a session
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground lg:hidden">
+            <p className="mt-2 text-base leading-relaxed tracking-[0.01em] text-[#505a63] lg:hidden dark:text-[#8d969e]">
               Tell us what the buffet costs and how hungry you are.
             </p>
-            <h2 className="hidden font-heading text-xl font-semibold tracking-tight lg:block">
+            <h2 className="hidden font-[var(--font-display)] text-2xl font-medium tracking-tight text-[#191c1f] lg:block dark:text-white">
               Session details
             </h2>
-            <p className="mt-1 hidden text-sm text-muted-foreground lg:block">
+            <p className="mt-2 hidden text-sm tracking-[0.01em] text-[#505a63] lg:block dark:text-[#8d969e]">
               All fields except restaurant name are required.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="restaurant-name"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
               >
-                Restaurant <span className="text-muted-foreground">(optional)</span>
+                Restaurant <span className="text-[#505a63] dark:text-[#8d969e]">(optional)</span>
               </label>
               <Input
                 id="restaurant-name"
@@ -136,14 +136,13 @@ export default function SetupPage() {
                 placeholder="KBBQ Town"
                 value={restaurantName}
                 onChange={(e) => setRestaurantName(e.target.value)}
-                className="h-11 text-base"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="buffet-price"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
               >
                 Buffet price (USD)
               </label>
@@ -162,27 +161,26 @@ export default function SetupPage() {
                   errors.buffetPrice ? "buffet-price-error" : "buffet-price-help"
                 }
                 required
-                className="h-11 text-base"
               />
               {errors.buffetPrice ? (
                 <p
                   id="buffet-price-error"
                   role="alert"
-                  className="text-sm text-destructive"
+                  className="text-sm text-[#e23b4a]"
                 >
                   {errors.buffetPrice}
                 </p>
               ) : (
-                <p id="buffet-price-help" className="text-xs text-muted-foreground">
+                <p id="buffet-price-help" className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
                   What you paid to walk in.
                 </p>
               )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="city-tier"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
               >
                 City tier
               </label>
@@ -191,7 +189,7 @@ export default function SetupPage() {
                 value={cityTier}
                 onChange={(e) => setCityTier(e.target.value as CityTier)}
                 aria-describedby="city-tier-help"
-                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+                className="h-12 w-full rounded-full border border-[rgba(25,28,31,0.12)] bg-white px-5 text-[0.9375rem] tracking-[0.01em] text-[#191c1f] outline-none transition-colors focus-visible:border-[#191c1f] dark:bg-[#191c1f] dark:text-white dark:border-white/15 dark:focus-visible:border-white"
               >
                 {CITY_TIER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -199,15 +197,15 @@ export default function SetupPage() {
                   </option>
                 ))}
               </select>
-              <p id="city-tier-help" className="text-xs text-muted-foreground">
+              <p id="city-tier-help" className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
                 Adjusts suggested à la carte prices for your area. Manual entries are never adjusted.
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label
                 htmlFor="appetite-budget"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
               >
                 Appetite budget
               </label>
@@ -229,27 +227,26 @@ export default function SetupPage() {
                     : "appetite-budget-help"
                 }
                 required
-                className="h-11 text-base"
               />
               {errors.appetiteBudget ? (
                 <p
                   id="appetite-budget-error"
                   role="alert"
-                  className="text-sm text-destructive"
+                  className="text-sm text-[#e23b4a]"
                 >
                   {errors.appetiteBudget}
                 </p>
               ) : (
                 <p
                   id="appetite-budget-help"
-                  className="text-xs text-muted-foreground"
+                  className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
                 >
                   Total fill units you can stomach. Higher = hungrier.
                 </p>
               )}
             </div>
 
-            <Button type="submit" className="mt-2 h-11 text-base">
+            <Button type="submit" size="lg" className="mt-2 w-full">
               Start session
             </Button>
           </form>

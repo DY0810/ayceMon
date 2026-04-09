@@ -60,17 +60,17 @@ export default function CombosPage() {
   const buffetPrice = session.buffetPrice;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <main className="mx-auto w-full max-w-6xl px-4 py-10 lg:px-8 lg:py-16">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight lg:text-3xl">
+          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-5xl dark:text-white">
             Combos
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
             Pre-meal targets to clear ${buffetPrice.toFixed(2)}.
           </p>
         </div>
-        <p className="hidden text-sm text-muted-foreground lg:block">
+        <p className="hidden text-sm tracking-[0.01em] text-[#505a63] lg:block dark:text-[#8d969e]">
           Appetite budget: {session.appetiteBudget} fill units
         </p>
       </div>
@@ -94,7 +94,7 @@ export default function CombosPage() {
           />
         </div>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {combos.map((combo, index) => {
             const wins = combo.totalValue >= buffetPrice;
             return (
@@ -104,47 +104,41 @@ export default function CombosPage() {
                     <CardTitle className="flex items-center gap-2">
                       <span>Combo {index + 1}</span>
                       {wins ? (
-                        <Badge className="gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                        <Badge className="gap-1">
                           <Check aria-hidden />
                           Beats buffet
                         </Badge>
                       ) : (
-                        <Badge variant="destructive" className="gap-1">
+                        <Badge variant="outline" className="gap-1">
                           <X aria-hidden />
                           Falls short
                         </Badge>
                       )}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-3">
+                  <CardContent className="flex flex-col gap-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <div>
-                        <div className="font-heading text-3xl font-semibold tabular-nums text-foreground">
+                        <div className="font-[var(--font-display)] text-4xl font-medium leading-none tracking-tight tabular-nums text-[#191c1f] dark:text-white">
                           ${combo.totalValue.toFixed(2)}
                         </div>
-                        <div
-                          className={`text-xs tabular-nums ${
-                            wins ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"
-                          }`}
-                        >
+                        <div className="mt-2 text-xs tracking-[0.01em] tabular-nums text-[#505a63] dark:text-[#8d969e]">
                           vs ${buffetPrice.toFixed(2)} buffet ·{" "}
                           {wins
                             ? `+$${(combo.totalValue - buffetPrice).toFixed(2)}`
                             : `-$${(buffetPrice - combo.totalValue).toFixed(2)}`}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground tabular-nums">
+                      <div className="text-right text-xs text-[#505a63] tabular-nums dark:text-[#8d969e]">
                         fill {combo.totalFill}/{session.appetiteBudget}
                       </div>
                     </div>
                     <div
-                      className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                      className="h-2 w-full overflow-hidden rounded-full bg-[#f4f4f4] dark:bg-[#262a2e]"
                       aria-hidden
                     >
                       <div
-                        className={`h-full rounded-full ${
-                          wins ? "bg-emerald-500" : "bg-foreground/60"
-                        }`}
+                        className="h-full rounded-full bg-[#191c1f] dark:bg-white"
                         style={{
                           width: `${Math.min(
                             100,
@@ -155,22 +149,22 @@ export default function CombosPage() {
                         }}
                       />
                     </div>
-                    <ul className="flex flex-col gap-1">
+                    <ul className="flex flex-col gap-1.5">
                       {combo.picks.map((pick) => {
                         const item = itemsById.get(pick.itemId);
                         if (!item) return null;
                         return (
                           <li
                             key={pick.itemId}
-                            className="flex items-center justify-between gap-2 text-sm"
+                            className="flex items-center justify-between gap-2 text-sm tracking-[0.01em]"
                           >
-                            <span className="text-foreground">
-                              <span className="tabular-nums text-muted-foreground">
+                            <span className="text-[#191c1f] dark:text-white">
+                              <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
                                 {pick.units}×
                               </span>{" "}
                               {item.name}
                             </span>
-                            <span className="tabular-nums text-muted-foreground">
+                            <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
                               ${(item.alaCarteValue * pick.units).toFixed(2)}
                             </span>
                           </li>
@@ -182,7 +176,7 @@ export default function CombosPage() {
                     <Button
                       type="button"
                       onClick={() => applyCombo(combo)}
-                      className="h-11 w-full text-base"
+                      className="w-full"
                     >
                       Use this combo
                     </Button>
@@ -210,14 +204,14 @@ function EmptyState({
 }) {
   const router = useRouter();
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 px-4 py-12 text-center">
-      <p className="font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
+      <p className="font-medium text-[#191c1f] dark:text-white">{title}</p>
+      <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">{body}</p>
       <Button
         type="button"
         variant="outline"
         onClick={() => router.push(actionHref)}
-        className="mt-4 h-11 px-4 text-base"
+        className="mt-6"
       >
         {actionLabel}
       </Button>
