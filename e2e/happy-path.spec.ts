@@ -29,6 +29,9 @@ test.describe("happy path", () => {
     ).toBeVisible();
     await page.getByLabel(/restaurant/i).fill("KBBQ Town");
     await page.getByLabel(/buffet price/i).fill("35");
+    // Pick the premium city tier so seeded prices are visibly adjusted
+    // upward — this lets a later assertion prove the multiplier applied.
+    await page.getByLabel(/city tier/i).selectOption("metro-premium");
     await page.getByLabel(/appetite budget/i).fill("25");
     await page.getByRole("button", { name: "Start session" }).click();
 
@@ -41,13 +44,18 @@ test.describe("happy path", () => {
     // 3. Add 3 items — exercise both the new suggestion dropdown AND the
     //    manual fallback path.
     //
-    // (a) Suggestion path: type "short rib", pick the first seed catalog
-    //     suggestion. This should pre-fill value/fill/category without the
-    //     user touching the value field. We then confirm the library card
-    //     shows the "typical" badge.
-    await addLibraryItemViaSuggestion(page, {
-      query: "short rib",
+    // (a) Suggestion path: type "wagyu short rib" (narrow enough to match
+    //     "Wagyu Short Rib" exactly — score 100 beats the generic "short
+    //     rib" substring matches). This should pre-fill value/fill/category
+    //     without the user touching the value field. We then confirm the
+    //     library card shows the "typical" badge and the value is
+    //     tier-adjusted upward (metro-premium applies a +20% multiplier —
+    //     Wagyu Short Rib's raw typical is $22, so the adjusted value
+    //     should be >$24).
+    const shortRibValue = await addLibraryItemViaSuggestion(page, {
+      query: "wagyu short rib",
     });
+    expect(shortRibValue).toBeGreaterThan(24);
 
     // (b) Manual path: type a name that has no seed match and enter every
     //     field by hand. The resulting card should NOT have the "typical"
@@ -216,11 +224,12 @@ interface SuggestionInput {
 // Opens the Add-item dialog, types a query into the name combobox, waits
 // for the suggestion listbox, picks the first option, and submits. The
 // picked seed entry is expected to pre-fill the value, fillFactor, and
-// category fields — this helper does NOT touch them.
+// category fields — this helper does NOT touch them. Returns the pre-
+// filled value as a number so callers can assert tier adjustment.
 async function addLibraryItemViaSuggestion(
   page: Page,
   { query }: SuggestionInput
-): Promise<void> {
+): Promise<number> {
   await page.getByRole("button", { name: "Add item" }).click();
 
   const dialog = page.getByRole("dialog");
@@ -242,8 +251,11 @@ async function addLibraryItemViaSuggestion(
   const valueField = dialog.getByLabel(/à la carte value/i);
   const valueText = await valueField.inputValue();
   expect(valueText).not.toBe("");
-  expect(Number(valueText)).toBeGreaterThan(0);
+  const pickedValue = Number(valueText);
+  expect(pickedValue).toBeGreaterThan(0);
 
   await dialog.getByRole("button", { name: "Add to library" }).click();
   await expect(dialog).toBeHidden();
+
+  return pickedValue;
 }

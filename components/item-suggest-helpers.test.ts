@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { applyPick, computeSource } from "./item-suggest-helpers";
-import type { SeedEntry } from "@/lib/seed-catalog";
+import type { SeedEntry } from "../lib/seed-catalog";
 
 const sampleEntry: SeedEntry = {
   id: "kbbq.wagyu-short-rib",
@@ -16,8 +16,12 @@ const sampleEntry: SeedEntry = {
 };
 
 describe("applyPick", () => {
-  it("maps a seed suggestion to form state", () => {
-    const patch = applyPick({ kind: "seed", entry: sampleEntry }, "seed");
+  it("maps a seed suggestion to form state at the baseline tier", () => {
+    const patch = applyPick(
+      { kind: "seed", entry: sampleEntry },
+      "seed",
+      "metro-standard"
+    );
     expect(patch.name).toBe("Wagyu short rib");
     expect(patch.alaCarteValue).toBe("18");
     expect(patch.fillFactor).toBe(5);
@@ -27,9 +31,47 @@ describe("applyPick", () => {
     expect(patch.pickedRefName).toBe("Wagyu short rib");
   });
 
+  it("defaults to baseline when tier is omitted", () => {
+    const patch = applyPick({ kind: "seed", entry: sampleEntry }, "seed");
+    expect(patch.alaCarteValue).toBe("18");
+  });
+
+  it("adjusts the seed value up for metro-premium", () => {
+    // 18 × 1.2 = 21.60 → nearest $0.25 = 21.50
+    const patch = applyPick(
+      { kind: "seed", entry: sampleEntry },
+      "seed",
+      "metro-premium"
+    );
+    expect(patch.alaCarteValue).toBe("21.5");
+  });
+
+  it("adjusts the seed value down for rural", () => {
+    // 18 × 0.8 = 14.40 → nearest $0.25 = 14.50
+    const patch = applyPick(
+      { kind: "seed", entry: sampleEntry },
+      "seed",
+      "rural"
+    );
+    expect(patch.alaCarteValue).toBe("14.5");
+  });
+
+  it("does NOT adjust estimate suggestions by tier", () => {
+    const patch = applyPick(
+      { kind: "estimate", name: "Mystery dish", estimate: 12, low: 10, high: 14 },
+      "estimate",
+      "metro-premium"
+    );
+    expect(patch.alaCarteValue).toBe("12");
+  });
+
   it("handles a seed entry without a category", () => {
     const noCategory: SeedEntry = { ...sampleEntry, category: undefined };
-    const patch = applyPick({ kind: "seed", entry: noCategory }, "seed");
+    const patch = applyPick(
+      { kind: "seed", entry: noCategory },
+      "seed",
+      "metro-standard"
+    );
     expect(patch.category).toBe("");
   });
 
