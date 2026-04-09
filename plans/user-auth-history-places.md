@@ -7,6 +7,37 @@
 
 ---
 
+## TL;DR (read this first)
+
+**What you're building:** Supabase (auth + Postgres + RLS) in front of the existing Zustand draft buffer; a `/history` + `/stats` pair of server-component pages; and a Google Places (New) autocomplete combobox on `/setup` that resolves a free-text restaurant name into a canonical `place_id`. Guest mode keeps working; finished guest sessions get promoted to the DB on first login.
+
+**Phases (one PR each):**
+
+| # | Phase | Parallelizable? | Model tier |
+|---|---|---|---|
+| 0 | Read docs, record "Allowed APIs" | no | strongest |
+| 1 | Supabase schema + RLS + clients + type additions | no | strongest |
+| 2 | Email/password auth + nav user menu | **‖ with Phase 5** | default |
+| 3 | `finishAndSaveSession` server action + `/history` | no — needs 2 AND 5 | strongest |
+| 4 | `/stats` page + per-restaurant drill-down | no | default |
+| 5 | Places API autocomplete combobox | **‖ with Phase 2** | strongest |
+| 6 | Guest → user migration on first login | no | default |
+| 7 | Verification, tests, polish | no | default |
+
+**Four footguns this plan specifically guards against (each has bitten someone):**
+1. **Next.js 16 renamed `middleware.ts` → `proxy.ts`** and made `cookies()`/`params` async. Any Supabase snippet you copy from the internet will be wrong; Phase 0 forces you to read the local Next docs and adapt before pasting.
+2. **Don't grant anon `SELECT` on `restaurants`.** The table is seeded with real user-visited places — `using (true)` would leak the dataset. Policy is `to authenticated` only.
+3. **Don't trust client-supplied place data.** The server action re-fetches Places Details from the `place_id` alone. Client-supplied `name`/`address`/`lat`/`lng` are rejected — otherwise any signed-in user can pollute the shared restaurants table.
+4. **Guest→user migration must be idempotent.** `session_records` has a unique `(user_id, client_session_id)` index; the migration uses `upsert(onConflict: …)`. Retries can't double-insert.
+
+**Stack decisions (locked):** Supabase + `@supabase/ssr`; Google Places API (New) via server-side route handler; email+password only (Google OAuth deferred); no React Query (all history/stats pages are server components); ESLint `no-explicit-any: error` as the type-safety gate.
+
+**Scope note:** Finished sessions sync across devices. Active drafts stay device-local — if you start a meal on your phone, you can't finish it on your laptop. Syncing active drafts is explicitly out of scope.
+
+**Where to look if you just want to execute one phase:** jump to the phase heading below. Each phase is self-contained (context brief → tasks → verification → anti-pattern guards) so a fresh agent can execute it without reading the others. The appendices at the bottom capture the Places billing gotchas and the adversarial-review anti-pattern watchlist.
+
+---
+
 ## Context (read before Phase 0)
 
 ### Current state (as of 2026-04-08)
@@ -523,60 +554,92 @@ Files this phase may edit: `app/(auth)/**`, `app/auth/**`, `app/actions/auth.ts`
 
 ## Phase 3 — Persist finished sessions & render history
 
-**Model tier:** default. **Depends on:** Phases 1, 2, **and** the `/api/places/resolve` endpoint from Phase 5 (see note below).
+**Model tier:** strongest. **Depends on:** Phases 1, 2, AND 5 (all three must be merged). Not parallelizable.
 
 ### Context brief (cold-start)
-Phase 2 shipped auth. The in-progress session is still in Zustand. When a signed-in user clicks "Finish meal" on `/tracker`, we now need to (a) resolve the restaurant to a `restaurants.id` (Phase 5 handles the autocomplete; this step just *consumes* the already-resolved `googlePlaceId` stored on the session buffer), (b) insert a `session_records` row, (c) show the result screen, and (d) make a new `/history` page that lists past sessions.
+Phases 1, 2, and 5 are all merged. Phase 1 added `ResolvedPlace` to the `Session` type and `setResolvedPlace` to the store; Phase 2 shipped auth and `requireUser()`; Phase 5 added the restaurant combobox that writes a `ResolvedPlace` to the store. In this phase you persist a **finished** session from a signed-in user to `session_records`, render a history list, and render a per-session detail page. Guest finish behavior is unchanged.
 
-### Cross-phase contract (read this carefully)
-After Phase 5 ships, `session: Session` in Zustand will carry a new optional field `resolvedPlace?: { googlePlaceId: string; name: string; formattedAddress: string; lat: number; lng: number }`. Phase 3 must:
-1. Require `resolvedPlace` to be non-null when a signed-in user clicks "Finish meal" (render an inline error if missing — "Pick a restaurant to save this meal").
-2. Allow guests to still finish without `resolvedPlace` (they just don't persist to DB — Phase 6 handles promotion).
+**Trust boundary you must respect:** the only client-supplied field you are allowed to trust is `resolvedPlace.googlePlaceId`. The server re-fetches the canonical name/address/lat/lng via Places Details (reusing Phase 5's server-side helper) before upserting into `restaurants`. Never write `name`/`address`/`lat`/`lng` straight from the client payload — doing so lets any signed-in user pollute the shared restaurants table.
 
 ### Tasks
-1. Update the `Session` type in `lib/types.ts` to add:
+1. Extract the server-side Places Details fetch from `app/api/places/resolve/route.ts` into a reusable server-only helper `lib/places/resolve.ts`:
    ```ts
-   resolvedPlace?: {
+   import "server-only";
+   export async function fetchPlaceDetails(placeId: string): Promise<{
      googlePlaceId: string;
      name: string;
      formattedAddress: string;
      lat: number;
      lng: number;
-   };
+   }>;
    ```
-   Update `lib/store.ts`:
-   - `startSession` now also accepts `resolvedPlace?` and stores it.
-   - New action `setResolvedPlace(place)` for mid-session edits.
-2. Create `app/actions/sessions.ts` with a server action `finishAndSaveSession(input)` that:
-   - Calls `require-user` (auth gate).
-   - Upserts the restaurant by `google_place_id` (insert if new, return the row). **Use the service role key via the server-only admin client (`lib/supabase/admin.ts`) because RLS blocks inserts to `restaurants` from authenticated users.**
-   - Inserts a `session_records` row with the snapshotted library/eaten arrays and computed totals (re-use `totalEatenValue`, `margin`, `didYouWin` from `lib/calc.ts`).
-   - Returns the new record's id.
-3. Create `lib/supabase/admin.ts` — server-only Supabase client built with `SUPABASE_SERVICE_ROLE_KEY`. Add a top-of-file comment: `// SERVER ONLY — do not import from any "use client" file`. Add a grep-based verification in the step's exit criteria.
+   Both the Phase 5 route handler and the Phase 3 server action call this helper. The route handler becomes a thin wrapper.
+2. Create `app/actions/sessions.ts` with a server action `finishAndSaveSession(input)`:
+   ```ts
+   "use server";
+   import "server-only";
+   // input: {
+   //   clientSessionId: string,        // the draft Session.id
+   //   googlePlaceId: string,          // only trusted client field
+   //   buffetPrice: number,
+   //   appetiteBudget: number,
+   //   library: Item[],
+   //   eaten: EatenEntry[],
+   //   startedAt: string,
+   // }
+   // steps:
+   //   1. requireUser()
+   //   2. fetchPlaceDetails(googlePlaceId)  ← server-side, authoritative
+   //   3. adminClient.from('restaurants').upsert(
+   //        { google_place_id, name, formatted_address, lat, lng },
+   //        { onConflict: 'google_place_id', ignoreDuplicates: false }
+   //      ).select().single()
+   //   4. compute totalEatenValue, margin, won via lib/calc.ts (with a SessionRecord-shaped adapter)
+   //   5. authed client insert into session_records with:
+   //        { user_id: auth.uid, restaurant_id, client_session_id,
+   //          buffet_price, appetite_budget, library, eaten,
+   //          total_eaten_value, margin, won, started_at, finished_at: new Date().toISOString() }
+   //      with onConflict: 'user_id,client_session_id' → idempotent
+   //   6. return { id: insertedRow.id }
+   ```
+   Use the authenticated server client (`createClient` from `server.ts`) for the `session_records` insert — RLS enforces `auth.uid() = user_id`. Use the admin client only for the `restaurants` upsert.
+3. Update `lib/calc.ts` to export a thin adapter `computeTotals(library: Item[], eaten: EatenEntry[]): { total: number; margin: number; won: boolean }` that the existing `Session`-shaped functions also delegate to. This avoids duplication between the in-progress `Session` and the finished `SessionRecord` shapes.
 4. Update `app/tracker/page.tsx`'s "Finish meal" button:
-   - If signed in: call `finishAndSaveSession` → route to `/history/[id]`.
-   - If guest: keep the existing behavior (local `finishMeal()` → route to `/result`).
+   - If signed in AND `session.resolvedPlace?.googlePlaceId` is set: call `finishAndSaveSession` → route to `/history/[id]` (the returned row id). On failure, show an inline error and remain on the tracker.
+   - If signed in AND no `resolvedPlace`: show an inline error: "Pick a restaurant on the setup screen to save this meal" with a link back to `/setup`. Do NOT let them finish.
+   - If guest: unchanged (local `finishMeal()` → `/result`).
 5. Create `app/history/page.tsx` — server component:
-   - Uses `require-user` + server Supabase client to `select` the user's `session_records` joined with `restaurants` (name, address).
-   - Renders a paginated list (20 per page) with: restaurant name, date, buffet price, total eaten, margin, win/loss badge.
-   - Each row links to `app/history/[id]/page.tsx`.
-6. Create `app/history/[id]/page.tsx` — server component showing the same detailed breakdown `/result` shows today, plus the restaurant name/address. Must 404 (not redirect) if the row isn't found or belongs to another user (RLS will hide it — treat "zero rows" as 404).
-7. Update nav: `History` becomes visible for signed-in users.
-8. React Query: install `QueryClientProvider` in `app/layout.tsx` — **only if** Phase 4 actually needs it on the client. For Phase 3, server components are sufficient. Defer RQ install to Phase 4 if it adds no value here.
+   - `const { user, supabase } = await requireUser();`
+   - `select id, finished_at, buffet_price, total_eaten_value, margin, won, restaurants(name, formatted_address) from session_records where user_id = user.id order by finished_at desc limit 20 offset <page>` — use the PostgREST join syntax.
+   - Render rows with: restaurant name, date, buffet price, total eaten, margin (green/red), win/loss badge.
+   - Pagination via query param `?page=0`.
+   - Empty state: "No meals logged yet. Start a session to track your first W."
+6. Create `app/history/[id]/page.tsx` — server component:
+   - `params` is a `Promise` in Next 16 — `const { id } = await params`.
+   - `requireUser()`, then select the single row by id joined with `restaurants`. Zero rows → `notFound()` (not redirect).
+   - Render the breakdown table (match the styling of the existing `/result` page) plus the restaurant name + address header.
+7. Nav visibility: confirm the Phase 2 nav change already shows `/history` for signed-in users. If not, add it.
 
 ### Verification
-- [ ] Signing in, starting a session, picking a resolved restaurant (use the Phase 5 UI), finishing a meal → row appears in `session_records`.
-- [ ] `/history` lists that row with the correct restaurant name.
-- [ ] `/history/[id]` renders the detail view; trying another user's id 404s.
-- [ ] `grep -rn "supabase/admin" app/ components/` returns only hits from files with `"use server"` directives or under `app/api/`.
-- [ ] Guest flow (Phase 2 E2E happy path) still passes unchanged.
+- [ ] Signing in, starting a session, picking a resolved restaurant via the Phase 5 combobox, finishing a meal → a row appears in `session_records` with the authoritative (server-fetched) name/address.
+- [ ] **Tampering test:** call `finishAndSaveSession` with a valid `googlePlaceId` but a lie-payload `name: "<script>"` in the calling client — the persisted row's restaurant name is still the server-fetched canonical name. (Can test by temporarily overriding the client payload in devtools.)
+- [ ] Calling `finishAndSaveSession` twice with the same `clientSessionId` inserts exactly one row (second call returns the same id or does nothing — upsert path).
+- [ ] `/history` lists the row with the correct restaurant name.
+- [ ] `/history/[id]` renders the detail view; trying another user's id via URL manipulation returns `notFound()` (RLS hides the row → zero results → 404).
+- [ ] Signed-in user with no `resolvedPlace` is blocked from finishing with a clear inline error.
+- [ ] `grep -rn 'from "@/lib/supabase/admin"' app/ components/` returns only hits under `app/actions/` (or other `"use server"` files). Client imports would fail at build time thanks to `import "server-only"`.
+- [ ] Guest happy-path E2E still passes unchanged.
 - [ ] `npm run build` clean.
+- [ ] `npm run lint` clean.
 
 ### Anti-pattern guards
-- ❌ Don't query `session_records` from a client component. Server components + server actions only (RLS still applies, but the round-trip pattern is cleaner).
-- ❌ Don't duplicate `totalEatenValue` math in the server action — import from `lib/calc.ts`.
-- ❌ Don't upsert by name. Upsert by `google_place_id` only.
-- ❌ Don't store `eaten`/`library` as TEXT or stringify before `insert` — it's `jsonb`; pass the array directly.
+- ❌ Don't trust client-supplied `name`/`formattedAddress`/`lat`/`lng`. Re-fetch Places Details server-side.
+- ❌ Don't query `session_records` from a client component. Server components + server actions only.
+- ❌ Don't duplicate calc math in the server action — import `computeTotals` from `lib/calc.ts`.
+- ❌ Don't upsert restaurants by name. Upsert by `google_place_id` only.
+- ❌ Don't manually `JSON.stringify` the `library`/`eaten` arrays — `supabase-js` serializes `jsonb` columns automatically. Pass the JS array directly.
+- ❌ Don't omit `client_session_id` from the insert — it's the Phase 6 idempotency key.
+- ❌ Don't install React Query. Every page here is a server component.
 
 ---
 
@@ -585,80 +648,105 @@ After Phase 5 ships, `session: Session` in Zustand will carry a new optional fie
 **Model tier:** default. **Depends on:** Phase 3.
 
 ### Context brief (cold-start)
-Phase 1 created `user_stats` and `restaurant_stats` views. Phase 3 populated `session_records`. This phase adds two pages: `/stats` (total) and the per-restaurant drill-down on `/history/by-restaurant/[restaurantId]`.
+Phase 1 created `user_stats` and `restaurant_stats` views (with `security_invoker = on` and `grant select to authenticated`). Phase 3 is inserting into `session_records`. This phase adds two pages: `/stats` (lifetime totals) and a per-restaurant drill-down at `/history/by-restaurant/[restaurantId]`.
 
 ### Tasks
-1. Create `lib/db/stats.ts` with server-side query helpers:
-   - `getUserStats(userId): Promise<UserStats>` — `select * from user_stats where user_id = $1`.
-   - `getRestaurantStats(userId): Promise<RestaurantStats[]>` — ordered by `last_visited_at desc`.
-   - `getSessionsAtRestaurant(userId, restaurantId): Promise<SessionRecord[]>`.
+1. Create `lib/db/stats.ts` with server-only query helpers (first line: `import "server-only";`):
+   - `getUserStats(supabase): Promise<UserStats | null>` — `select * from user_stats limit 1` (RLS already scopes to the caller; if the user has zero sessions, returns null).
+   - `getRestaurantStats(supabase): Promise<RestaurantStats[]>` — ordered by `last_visited_at desc`.
+   - `getSessionsAtRestaurant(supabase, restaurantId): Promise<SessionRecord[]>`.
+   - `getRestaurantById(supabase, restaurantId): Promise<Restaurant | null>`.
 2. Create `app/stats/page.tsx` — server component:
-   - Big headline: "Record: W–L (e.g. 7–4)".
-   - Lifetime margin: "+$214.50" (green) or "−$38.25" (red).
-   - Best session and worst session callouts.
-   - Below: a table of all restaurants with columns [Name, Visits, W–L, Total Margin, Last Visited], sortable by last visited by default.
+   - `requireUser()` → `getUserStats` + `getRestaurantStats`.
+   - Headline: `Record: {wins}–{losses}`. If `total_sessions === 0`, show the empty-state message and a CTA link to `/setup`.
+   - Lifetime margin: `+$214.50` (green) or `−$38.25` (red).
+   - "Best run" and "Worst run" callouts. Show `best_margin` and `worst_margin` as-is, regardless of sign. **Do not** special-case all-losses with a "Closest call" label — the sign of the number speaks for itself.
+   - Below: a table of all restaurants with columns [Name, Visits, W–L, Total Margin, Last Visited], default-sorted by `last_visited_at desc`.
 3. Create `app/history/by-restaurant/[restaurantId]/page.tsx` — server component:
-   - Header: restaurant name + address + W–L at this location.
-   - List of every session at this restaurant for this user.
-4. Link the nav "History" item to a dropdown or a sub-nav with [All, By restaurant, Stats]. Mobile: three separate entries under a hamburger, matching existing nav patterns.
-5. Empty-state for brand new users: "You haven't logged a meal yet. Start a session to track your first W."
+   - `const { restaurantId } = await params;` (Next 16 async params).
+   - `requireUser()`.
+   - `getRestaurantById(supabase, restaurantId)` — zero rows → `notFound()`. (This call will return zero rows both when the restaurant doesn't exist AND when the user has never been there — because the RLS-scoped `session_records` query in the next step would be empty anyway. To be safe, fetch the restaurant directly, then fetch the user's sessions at that restaurant; if *zero* sessions, `notFound()`.)
+   - Header: restaurant name + address + W–L at this location (derive from the sessions list).
+   - List of every session at this restaurant for this user, most recent first.
+4. Nav: convert the `History` entry into a grouped control. Desktop: a single "History" link that lands on `/history`, plus a separate "Stats" top-level link. Mobile (≤640px): two top-level entries (History, Stats). Do not build a custom dropdown — two top-level links is cleaner and consistent with the existing nav pattern.
+5. Empty-state copy: "You haven't logged a meal yet. Start a session to track your first W." — rendered on `/stats` when `total_sessions === 0`.
 
 ### Verification
-- [ ] After logging two sessions at two different restaurants with mixed win/loss, `/stats` reports the correct totals.
-- [ ] `/history/by-restaurant/[id]` only shows sessions at that restaurant for the current user (manual check: sign in as User B, try User A's restaurant id — must 404/empty).
+- [ ] After logging two sessions at two different restaurants with mixed win/loss (via the Phase 3 flow), `/stats` reports the correct totals.
+- [ ] `/history/by-restaurant/[id]` only shows sessions at that restaurant for the current user (manual check: sign in as User B, try a restaurant_id that User A has sessions at — must `notFound()` because User B has zero sessions there).
 - [ ] Numbers match hand-computed totals for the test dataset.
+- [ ] Empty state renders for a brand new user without crashing on the null `user_stats` row.
+- [ ] Views are queryable from the authenticated role without permission errors (confirms the Phase 1 `grant select` worked).
 - [ ] `npm run build` clean.
 
 ### Anti-pattern guards
 - ❌ Don't compute stats in JS by fetching every session and summing client-side — always use the views.
 - ❌ Don't trust a `restaurantId` from the URL without going through RLS-scoped queries.
-- ❌ Don't show "Best margin" as negative — if all sessions are losses, show the "least bad loss" and label it "Closest call".
+- ❌ Don't query the jsonb `library`/`eaten` arrays — use the denormalized numeric columns.
+- ❌ Don't add a "Closest call" label for all-losses. `best_margin` shown as-is is enough.
 
 ---
 
 ## Phase 5 — Google Places autocomplete on the setup screen
 
-**Model tier:** strongest for the API integration; default for the UI. **Depends on:** Phase 1 (env var scaffolding) only — can run in parallel with Phase 2–4.
+**Model tier:** strongest. **Depends on:** Phase 1 only. **Can run in parallel with Phase 2.**
 
 ### Context brief (cold-start)
-Currently `app/setup/page.tsx` has a plain text input for restaurant name. You're replacing it with a search-as-you-type combobox that queries the Google Places API (New) Autocomplete endpoint via a Next.js Route Handler, then resolves the chosen suggestion to a canonical place (name, address, lat/lng, `place_id`) via Place Details. The resolved object is stored in the Zustand session buffer; if the user is signed in, Phase 3's "Finish meal" action uses it to populate `session_records.restaurant_id`.
+Phase 1 added `ResolvedPlace` to the `Session` type and `setResolvedPlace` to the Zustand store. Currently `app/setup/page.tsx` has a plain text input for restaurant name. You're replacing it with a search-as-you-type combobox that queries Google Places API (New) Autocomplete via a Next.js Route Handler, then resolves the chosen suggestion to a canonical place via Place Details. The resolved object is stored via `setResolvedPlace`; Phase 3 later consumes it on finish.
+
+Files this phase may edit: `app/api/places/**`, `components/restaurant-combobox.tsx`, `lib/places/**`, `app/setup/page.tsx`. **Do not touch** `lib/types.ts`, `lib/store.ts`, `components/nav*`, or anything under `app/(auth)/**` or `app/actions/auth.ts` — those are owned by Phase 1 / Phase 2.
 
 ### Tasks
-1. Create `app/api/places/autocomplete/route.ts` (Route Handler):
+1. Create `lib/places/resolve.ts` (server-only helper, first line `import "server-only";`):
+   - `fetchPlaceDetails(placeId: string): Promise<ResolvedPlace>` — calls `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-Api-Key` and `X-Goog-FieldMask: id,displayName,formattedAddress,location`. Maps response → `ResolvedPlace`.
+   - `fetchAutocomplete(input, sessionToken, bias?): Promise<Array<{ placeId; primaryText; secondaryText }>>` — calls `https://places.googleapis.com/v1/places:autocomplete` with the same key header, `X-Goog-FieldMask: suggestions.placePrediction.placeId,suggestions.placePrediction.text`, body `{ input, sessionToken, locationBias?, includedPrimaryTypes: ["restaurant", "meal_takeaway", "food"] }`.
+   - Both functions throw `PlacesApiError` with a normalized shape on non-2xx — never leak Google's raw error body.
+2. Create `app/api/places/autocomplete/route.ts` (thin wrapper around `fetchAutocomplete`):
    - `POST` body: `{ input: string, sessionToken: string, bias?: { lat: number; lng: number; radius: number } }`.
-   - Calls `https://places.googleapis.com/v1/places:autocomplete` with header `X-Goog-Api-Key: process.env.GOOGLE_PLACES_API_KEY` and `X-Goog-FieldMask: suggestions.placePrediction.placeId,suggestions.placePrediction.text`.
-   - Filters to restaurant-like results only: pass `includedPrimaryTypes: ["restaurant", "meal_takeaway", "food"]` in the request body.
-   - Returns a thin DTO: `Array<{ placeId: string; primaryText: string; secondaryText: string }>`.
-   - **Never** returns the raw Google response to the client.
-2. Create `app/api/places/resolve/route.ts` (Route Handler):
-   - `POST` body: `{ placeId: string, sessionToken: string }`.
-   - Calls `https://places.googleapis.com/v1/places/{placeId}` with `X-Goog-FieldMask: id,displayName,formattedAddress,location`.
-   - Returns `{ googlePlaceId, name, formattedAddress, lat, lng }`.
-3. Add a rate-limit-by-IP guard on both routes (simple LRU in-memory, 60 req/min per IP). Use `@upstash/ratelimit` only if Phase 0 notes say it's acceptable; otherwise a hand-rolled `Map<string, { count, windowStart }>` is fine for dev.
-4. Create `components/restaurant-combobox.tsx` — client component:
-   - Uses `@base-ui/react` Combobox (already a dep) — check `node_modules/@base-ui/react` for the actual exported name if Combobox isn't the right import.
-   - Debounces input at 300ms.
-   - Generates a UUIDv4 session token per "open" (reuses across autocomplete calls, consumes on the details call). Regenerates after selection.
-   - Asks for `navigator.geolocation` **once** with a clear copy ("Use your location to find nearby restaurants?"). On deny, proceeds without bias.
-   - Renders suggestions with primary + secondary text.
-   - On select: calls `/api/places/resolve`, stores the result via `setResolvedPlace` in the store, and fills a read-only "Selected: {name} — {address}" row with a "Change" button.
-5. Replace the restaurant name `Input` in `app/setup/page.tsx` with `<RestaurantCombobox />`. On submit, the form pulls `resolvedPlace` out of the store (instead of the old `restaurantName` state).
-6. Fallback: if no `resolvedPlace` is set at submit time, allow guests to proceed with a plain free-text `restaurantName` (current behavior). Signed-in users are blocked with an inline error: "Pick a restaurant from the list so we can track your stats."
-7. Handle the "can't find my restaurant" edge case: a "None of these — enter manually" action under the suggestion list that falls back to free-text and disables the signed-in save path (same inline error).
+   - **Reject `input.length < 3`** with 400 `{ error: "input_too_short" }`. Debounce alone is not enough to cap billing.
+   - Returns a thin DTO array. Never the raw Google response.
+3. Create `app/api/places/resolve/route.ts` (thin wrapper around `fetchPlaceDetails`):
+   - `POST` body: `{ placeId: string }`.
+   - Returns `ResolvedPlace`.
+4. Add a **best-effort** in-memory rate limit on both routes: `Map<ip, { count, windowStart }>`, 60 req/min. Treat this as dev-only — add a comment at the top: `// DEV-ONLY rate limit. Per-instance in-memory Map leaks on serverless cold starts. Before public launch, move to Upstash/Vercel KV.` Do not add `@upstash/ratelimit` — keeping deps minimal until we actually need durable rate limiting.
+5. Create `components/restaurant-combobox.tsx` (`"use client"`):
+   - Import from the namespaced subpath, using the composed parts recorded in Phase 0 notes:
+     ```ts
+     import { Combobox } from "@base-ui/react/combobox";
+     // Use: <Combobox.Root>, <Combobox.Input>, <Combobox.Positioner>,
+     //      <Combobox.Popup>, <Combobox.List>, <Combobox.Item>
+     ```
+     **Copy the exact skeleton from `plans/.phase0-notes.md`** — do not guess the API.
+   - Controlled: `const [query, setQuery] = useState(""); const [items, setItems] = useState<Suggestion[]>([]);`
+   - **Debounce at 300ms** AND **gate on `query.trim().length >= 3`** before firing autocomplete. Both are required for billing sanity.
+   - **Session token lifecycle**: generate a fresh UUIDv4 session token when the combobox opens OR after a successful resolve. Reuse the same token across all autocomplete calls until a resolve happens; then rotate.
+   - **Per-token cap**: track autocomplete request count per session token, max 10. After 10, stop firing until the user selects or the token rotates.
+   - **Geolocation**: ask once via `navigator.geolocation.getCurrentPosition` with clear copy ("Use your location to find nearby restaurants?"). Cache the result in component state. On deny or error, proceed without `locationBias`.
+   - Render each suggestion with primaryText (bold) + secondaryText (muted).
+   - On select: POST `/api/places/resolve` with the `placeId`, call `setResolvedPlace(result)`, render a read-only confirmation row "Selected: {name} — {address}" with a "Change" button that clears `resolvedPlace` and reopens the combobox.
+   - Include a "None of these — enter manually" trailing item that clears `resolvedPlace` and falls back to a plain `<Input>` for the name (this path is allowed for guests; signed-in users will be blocked at finish time by Phase 3).
+6. Replace the restaurant name `Input` in `app/setup/page.tsx` with `<RestaurantCombobox />`. The form's `restaurantName` state becomes derived: `resolvedPlace?.name ?? manualName`. On submit, call `startSession({ ..., resolvedPlace })` (the store action accepts it per Phase 1).
+7. Guest fallback: signed-out users who pick "enter manually" proceed with a free-text name (current behavior — Phase 1 did not remove the legacy field). Signed-in users who pick "enter manually" are NOT blocked here — they're blocked at Finish time in Phase 3 with a clear error. This keeps Phase 5 independent of Phase 2.
 
 ### Verification
-- [ ] Typing "kbbq" in San Francisco returns actual nearby restaurants (verify manually in dev).
-- [ ] Selecting one populates the Zustand store with a `resolvedPlace` object.
-- [ ] The Google API key is **not** in the client bundle: `grep -r "GOOGLE_PLACES_API_KEY" .next/static` returns nothing.
-- [ ] Rate limit returns 429 after 60 requests in a minute from the same IP.
-- [ ] Guest mode still allows proceeding without picking a place.
-- [ ] Cite the Places docs file/URL you used.
+- [ ] Typing "kb" (2 chars) does NOT fire the autocomplete request (400 `input_too_short` is never reached because the client gates first).
+- [ ] Typing "kbbq" in San Francisco returns real nearby restaurants.
+- [ ] Selecting a suggestion populates the Zustand store's `resolvedPlace` with a valid object.
+- [ ] The Google API key is not in the client bundle: `grep -r "GOOGLE_PLACES_API_KEY" .next/static` returns nothing.
+- [ ] Session token rotates after a successful resolve (inspect network tab: second autocomplete session uses a new token).
+- [ ] Per-token cap: firing 11 autocomplete calls without a resolve stops at 10 client-side (no 11th request).
+- [ ] Rate limit returns 429 after 60 requests in a minute from the same IP during dev.
+- [ ] Guest mode still allows proceeding via "None of these — enter manually".
+- [ ] Cite the Places docs file/URL and the `.phase0-notes.md` Combobox skeleton in the step's exit notes.
 
 ### Anti-pattern guards
 - ❌ Don't hit Google Places directly from a `"use client"` file. Always via the Route Handler.
-- ❌ Don't reuse a session token across unrelated searches — that breaks Google's billing model and will cost 10× more.
-- ❌ Don't prefetch Place Details on every keystroke — details are expensive; fetch only on select.
-- ❌ Don't cache Places results in `localStorage` — Google's ToS forbids storing the response beyond 30 days, and lat/lng can drift. Cache only the `place_id` and your own `restaurants` row.
+- ❌ Don't fire autocomplete on fewer than 3 characters. Billing footgun.
+- ❌ Don't reuse a session token across unrelated searches — breaks Google's billing model.
+- ❌ Don't prefetch Place Details on every keystroke — Details is the expensive call; fetch only on select.
+- ❌ Don't cache Places results in `localStorage`/`IndexedDB` — Google's ToS forbids storing the response beyond 30 days. Cache only `place_id` and your own `restaurants` row (written by the server in Phase 3).
+- ❌ Don't guess the `@base-ui/react` API. Use the Phase 0 skeleton.
+- ❌ Don't add `@upstash/ratelimit`. In-memory dev limit is fine until we actually ship publicly.
 
 ---
 
@@ -667,32 +755,60 @@ Currently `app/setup/page.tsx` has a plain text input for restaurant name. You'r
 **Model tier:** default. **Depends on:** Phases 2, 3, 5.
 
 ### Context brief (cold-start)
-A user may build up sessions in guest mode (Zustand + localStorage) and then create an account. We need a one-shot migration on sign-in that promotes *finished* guest sessions (those with `finishedAt` set) into `session_records`. In-progress guest buffers are left alone — migration happens after a clean finish.
+A user may build up sessions in guest mode (Zustand + localStorage) and then create an account. Phase 1 added an empty `finishedSessions: Session[]` array to the store; this phase populates it on guest finish and drains it into `session_records` on first login. The Phase 1 unique index on `(user_id, client_session_id)` makes the migration **idempotent at the database layer** — retries, network drops, and double-tab races cannot double-insert.
 
 ### Tasks
-1. Add an optional `finishedSessions: Session[]` array to the Zustand store, persisted. Update `finishMeal()` so guests push a deep copy of the session into `finishedSessions` (signed-in users skip this because their data already went to the DB).
-2. Create a server action `promoteGuestSessions(sessions: Session[])` that:
-   - Requires a signed-in user.
-   - For each session: if `resolvedPlace` is missing, skip (and return it in a `skipped` array with reason "no_place").
-   - Upserts the restaurant, inserts the record (reuse the Phase 3 helper).
-   - Returns `{ inserted: number, skipped: { session: Session, reason: string }[] }`.
-3. Create a client-side effect that runs exactly once on successful login:
-   - Reads `finishedSessions` from the store.
-   - Calls `promoteGuestSessions`.
-   - On success, clears `finishedSessions` from the store.
-   - Shows a toast: "Imported N past sessions — M skipped (no restaurant picked)".
-4. For the "skipped" sessions, render a one-time `/import` page after login that lets the user pick a restaurant for each via the Phase 5 combobox and retry. Or, pragmatically, show the skipped list in a dismissable banner and let them re-enter manually.
+1. Update `lib/store.ts`:
+   - In `finishMeal()`: if the session has `resolvedPlace` set, push a deep copy of the full session (including its `id`, which is the idempotency key) into `finishedSessions`. If no `resolvedPlace`, still push it (Phase 3's signed-in path blocks this case at finish time; for guests, the session lives in localStorage and we may let them resolve it later via the skipped-list UI below).
+   - Add an action `removeFinishedSession(id: string)` that Phase 6's code calls after a confirmed successful insert.
+   - **Do not** add a blanket `clearFinishedSessions()` — removing by id forces per-session confirmation and avoids losing data if a partial batch fails.
+2. Create `app/actions/migrate.ts` with server action `promoteGuestSessions(sessions: Session[])`:
+   ```ts
+   "use server";
+   import "server-only";
+   // For each guest session:
+   //   - if !session.resolvedPlace: skip with reason "no_place"
+   //   - else: call the SAME helper that finishAndSaveSession uses in Phase 3:
+   //       fetchPlaceDetails → upsert restaurant → insert session_records
+   //       using client_session_id = session.id and
+   //       supabase.from('session_records').upsert(..., {
+   //         onConflict: 'user_id,client_session_id',
+   //         ignoreDuplicates: true,
+   //       })
+   //   - on success for that session: return its id in the `promoted` array
+   //   - on per-session failure: return it in `failed` with the error message
+   // Returns: { promoted: string[], skipped: {id, reason}[], failed: {id, error}[] }
+   ```
+   Because the insert uses `onConflict` + `ignoreDuplicates: true`, a second call with the same sessions is a no-op at the DB layer — this is the primary idempotency guarantee. The store's `removeFinishedSession` calls are a secondary optimization (so we don't keep retrying already-promoted sessions), not a correctness mechanism.
+3. Create `components/guest-migration-effect.tsx` (`"use client"`) — mounted once in `app/layout.tsx` under `<NavServer />`:
+   - Reads `user` from a new client hook `useCurrentUser()` that subscribes to `supabase.auth.onAuthStateChange`.
+   - Reads `finishedSessions` from the Zustand store.
+   - When `user` transitions from `null → {...}` AND `finishedSessions.length > 0`: call `promoteGuestSessions(finishedSessions)`.
+   - On response: for each id in `result.promoted`, call `removeFinishedSession(id)`. Leave `skipped` and `failed` in the store — the next mount will surface them.
+   - Show a toast: `Imported N meals. M still need a restaurant picked.`
+   - **Do not** gate this on a "has run" flag. The gate is DB-side idempotency. Mount side effects are safe to re-run because the server upserts with `ignoreDuplicates`.
+4. Create `app/import/page.tsx` — server component + small client helper:
+   - `requireUser()`.
+   - Reads `finishedSessions` from the client store (client child component) and filters to those with no `resolvedPlace` or marked as `failed`.
+   - For each row: show the session summary + a `<RestaurantCombobox />` (from Phase 5) and a "Save" button that patches the session in the store with the new `resolvedPlace` and re-triggers `promoteGuestSessions([patchedSession])`.
+   - Success → `removeFinishedSession(id)` → row disappears.
+   - Empty list → "Nothing to import." + link back to `/`.
+5. Link to `/import` in the nav (signed-in only) **only** when `finishedSessions.length > 0`. Hide it otherwise — no dead links.
 
 ### Verification
-- [ ] Guest logs 3 sessions (2 with resolved places, 1 free-text), then signs up → 2 rows appear in `session_records`, 1 is surfaced in the "skipped" list.
-- [ ] Running the migration twice does not double-insert (the effect clears `finishedSessions` on success).
-- [ ] Signing out and back in does not re-trigger migration (store is empty).
-- [ ] `npm run build` clean.
+- [ ] Guest logs 3 sessions (2 with resolved places, 1 without), then signs up → 2 rows appear in `session_records`, 1 appears in `/import`.
+- [ ] **Idempotency (primary):** run `promoteGuestSessions` twice with the same payload → `session_records` count is unchanged on the second call.
+- [ ] **Double-tab race:** open two tabs, both signed in with the same `finishedSessions` in localStorage (copy between tabs before either finishes the migration). Both tabs fire `promoteGuestSessions` concurrently → still exactly one row per `client_session_id`.
+- [ ] Network drop during migration (simulate with devtools offline mid-call): `finishedSessions` still contains the un-promoted ids. Going back online and reloading the page re-runs the effect and successfully inserts them.
+- [ ] Signing out then signing in as a *different* user does not insert the first user's sessions under the second user's id (the effect only fires on `null → user` transitions and the server action enforces `auth.uid() = user_id` via RLS).
+- [ ] `npm run build` + `npm run lint` clean.
 
 ### Anti-pattern guards
-- ❌ Don't run the migration inside a React render — use an effect gated on a "just logged in" flag.
-- ❌ Don't delete `finishedSessions` before the server confirms success.
-- ❌ Don't migrate sessions without `finishedAt` — those are in-progress and belong to guest buffer only.
+- ❌ Don't rely on a client "has run" flag as the idempotency mechanism. DB unique index is the source of truth.
+- ❌ Don't clear `finishedSessions` wholesale after the promote call. Remove by id, only after per-session confirmation.
+- ❌ Don't run the migration inside a render — use an effect gated on the auth-state transition.
+- ❌ Don't migrate sessions without `finishedAt`. In-progress drafts stay device-local.
+- ❌ Don't bypass the Phase 3 server-side placeId re-fetch. Reuse the same helper — the trust boundary is identical.
 
 ---
 
@@ -702,73 +818,124 @@ A user may build up sessions in guest mode (Zustand + localStorage) and then cre
 
 ### Tasks
 1. Unit tests:
-   - `lib/calc.test.ts` — add a case covering `SessionRecord`-shaped inputs.
+   - `lib/calc.test.ts` — add a case covering `SessionRecord`-shaped inputs through `computeTotals`.
    - New `lib/db/stats.test.ts` with a mocked Supabase client — verify the query helpers return the expected shape.
-   - `lib/supabase/admin.test.ts` — a static test that imports `admin.ts` and asserts it is not importable from a client context (use a magic comment check or `vitest`'s `.server.ts` convention — pick whichever is idiomatic in Phase 0 notes).
+   - Verify that `lib/supabase/admin.ts`, `lib/supabase/server.ts`, `lib/supabase/proxy-session.ts`, `lib/db/stats.ts`, `lib/places/resolve.ts`, and `lib/auth/require-user.ts` all start with `import "server-only";` via a simple grep test:
+     ```ts
+     // lib/server-only.test.ts
+     import fs from "node:fs";
+     const files = [
+       "lib/supabase/admin.ts",
+       "lib/supabase/server.ts",
+       "lib/supabase/proxy-session.ts",
+       "lib/db/stats.ts",
+       "lib/places/resolve.ts",
+       "lib/auth/require-user.ts",
+     ];
+     it.each(files)("%s is marked server-only", (f) => {
+       expect(fs.readFileSync(f, "utf8")).toMatch(/^import\s+"server-only";/);
+     });
+     ```
+     The `server-only` package throws at build time if a client component transitively imports any of these, so this test is belt-and-suspenders.
 2. E2E tests (`e2e/`):
-   - Split into two specs: `e2e/guest-path.spec.ts` (the original happy path, preserved) and `e2e/signed-in-path.spec.ts` (sign up → pick a restaurant → finish meal → appears in /history → /stats updates).
-   - Use a dedicated test user seeded via the Supabase admin client in a global setup.
-3. Grep gates (these must return zero):
-   - `grep -rn " any" lib/ app/ components/ --include="*.ts" --include="*.tsx"`
-   - `grep -rn "TODO\|FIXME" lib/ app/ components/ --include="*.ts" --include="*.tsx"`
-   - `grep -rn "SUPABASE_SERVICE_ROLE_KEY\|GOOGLE_PLACES_API_KEY" app/ components/ lib/ | grep -v "lib/supabase/admin.ts\|app/api/places\|\.env"`
-4. Build gates:
+   - Rename the current `happy-path.spec.ts` to `guest-path.spec.ts` (content unchanged — guest end-to-end flow).
+   - Add `signed-in-path.spec.ts`:
+     1. Global setup: seed a dedicated test user via the Supabase admin client + a fresh auth session.
+     2. Sign in, start a session, open the restaurant combobox, pick a real nearby place, add 3 items, finish the meal.
+     3. Assert `/history` lists the new row with the canonical restaurant name.
+     4. Assert `/stats` shows `Record: 1–0` (or 0–1) and the lifetime margin matches.
+   - Global teardown: delete the test user and cascade-clean the rows.
+3. Lint gate (replaces the old `grep -rn " any"` gate):
+   - `npm run lint` must be clean.
+   - ESLint config has `@typescript-eslint/no-explicit-any: "error"` (set in Phase 1). Verify by temporarily introducing `const x: any = 1;` and confirming lint fails.
+4. Secret-leak gate:
+   - `npm run build` first.
+   - Then: `grep -r "SUPABASE_SERVICE_ROLE_KEY\|GOOGLE_PLACES_API_KEY" .next/static/ || true` — must return zero matches (the `|| true` prevents the grep exit from failing the step if there are zero matches, which is the desired outcome).
+5. TODO/FIXME gate (warning, not error):
+   - `grep -rn "TODO\|FIXME" lib/ app/ components/ --include="*.ts" --include="*.tsx"` — list any hits and decide per-line whether to address or explicitly accept.
+6. Build + test gates:
    - `npm run build` — clean, no warnings.
-   - `npx playwright test` — all green.
    - `npm test` — all green.
-5. Mobile review: every new page usable at 375px wide (login, signup, history, history detail, stats, combobox dropdown).
-6. Manual: clear localStorage, sign up fresh, walk through start-to-finish, confirm win/loss numbers and restaurant name match.
-7. Run `mcp__claude_ai_Supabase__get_advisors` one more time (security + performance). Zero `ERROR` findings.
+   - `npx playwright test` — both specs green.
+7. Mobile review: every new page usable at 375px wide (login, signup, history, history detail, stats, combobox dropdown, import).
+8. Manual smoke: clear localStorage + sign out; sign up fresh; go through setup (pick a real restaurant) → library → combos → tracker → finish → history → stats. Confirm win/loss numbers and restaurant name match.
+9. Guest smoke: clear cookies + localStorage; walk through the original guest flow; confirm nothing regressed.
+10. Run `mcp__claude_ai_Supabase__get_advisors` one more time (security + performance). Zero `ERROR` findings.
+11. Update `README.md` with: required env vars, Supabase setup steps (CLI + project), Google Places API key provisioning + billing cap note, and how to run the two E2E specs.
 
 ### Final acceptance
 - [ ] Signed-in end-to-end journey (sign up → session with Places pick → finish → history → stats) passes E2E.
-- [ ] Guest end-to-end journey (the original happy path) still passes.
-- [ ] All grep gates clean.
+- [ ] Guest end-to-end journey (the original happy path, renamed) still passes.
+- [ ] `npm run lint` clean with `no-explicit-any: error`.
+- [ ] Secret-leak grep over `.next/static/` returns zero matches.
 - [ ] `npm run build`, `npm test`, `npx playwright test` all green.
 - [ ] Advisors report zero `ERROR` findings.
-- [ ] README.md updated with new env vars and a "Running with Supabase" section.
+- [ ] README.md updated.
+- [ ] `server-only` enforcement test passes for all six server-only modules.
 
 ### Anti-pattern guards
 - ❌ Don't skip mobile review.
-- ❌ Don't suppress TS errors.
+- ❌ Don't suppress TS or lint errors.
 - ❌ Don't mock the DB for the signed-in E2E — hit a real Supabase preview project.
+- ❌ Don't rely only on the grep gate for secrets — `server-only` is the primary enforcement; the grep is a backstop.
 
 ---
 
 ## Out-of-scope for this plan (explicitly deferred)
 
-- Magic link auth.
-- Social sharing of W/L records.
-- Leaderboards or any social/multi-user feature beyond each user seeing their own data.
-- Mapbox / OpenStreetMap fallback for Places.
-- Photo upload per session.
-- Importing Google Maps timeline history.
-- Currencies other than USD.
-- Restaurant ownership/claim flows ("is this your restaurant?").
-- Tagging, favorites, or notes on restaurants beyond what the schema already has.
+- **Google OAuth sign-in** (email+password only in this plan — OAuth needs a human to click through the Supabase dashboard and is a separate plan).
+- **Active draft session sync across devices** — only *finished* sessions sync. Starting a meal on your phone and finishing on your laptop is not supported.
+- **Magic link auth.**
+- **Social sharing** of W/L records.
+- **Leaderboards** or any multi-user feature beyond each user seeing their own data.
+- **Mapbox / OpenStreetMap fallback** for Places.
+- **Photo upload** per session.
+- **Importing Google Maps timeline history.**
+- **Currencies other than USD.**
+- **Restaurant ownership / claim flows** ("is this your restaurant?").
+- **Tagging, favorites, or notes** on restaurants beyond what the schema already has.
+- **Durable rate limiting** on the Places routes (the in-memory dev limit is a placeholder; before public launch, move to Upstash/Vercel KV).
 
 ---
 
-## Appendix A — Cost notes to flag to the user before Phase 5
+## Appendix A — Google Places API (New) billing notes
 
-Google Places API (New):
-- Autocomplete (Session) calls are billed per *session*, not per keystroke — but only if a Place Details call using the same session token follows within ~3 minutes.
-- Place Details (Basic SKU) is ~$5 per 1000 requests. The first ~$200 of usage is covered by Google's monthly free credit.
-- **Recommendation:** enable billing with a $25 quota cap for safety. This is a human-only step.
+**Read before starting Phase 5.** Places billing has a non-obvious sharp edge that the reviewer flagged:
+
+- **Autocomplete (with Session, bundled):** If the user types, picks a suggestion, and the client calls Place Details using the **same session token**, all the autocomplete requests + the details call are billed as **one** "Autocomplete Session" SKU. This is cheap.
+- **Autocomplete (abandoned, NOT bundled):** If the user types and walks away without selecting — no Place Details call with that token — every autocomplete request is billed **individually** under the "Autocomplete (without Place Details)" SKU. This is the common case and the billing footgun. Debounce + min-3-chars gate + per-token request cap (all enforced in Phase 5 Task 5) are the mitigation.
+- **Place Details SKU tier:** depends on the field mask. `id,displayName,formattedAddress,location` is in the **Essentials** tier. Phase 0 must record the current $/1000 rate for this tier before Phase 5 starts — it has changed before.
+- **Free credit:** Google provides a rolling monthly credit (historically ~$200) that usually covers dev and low-volume production. Don't rely on it — set a quota cap.
+
+### Human-only steps (no MCP equivalent)
+1. Create a Google Cloud project and enable the Places API (New).
+2. Create an API key, restrict it to the Places API (New) **and** to server IPs only (since the key never ships to the client, don't add HTTP referrer restrictions).
+3. **Set a billing quota cap** — recommended $25/day for dev — before putting the key in `.env.local`.
+4. Paste the key into `.env.local` as `GOOGLE_PLACES_API_KEY=...`.
 
 ## Appendix B — Anti-pattern watchlist (from adversarial review)
 
-These are the failure modes a reviewer should look for in every PR of this plan:
-1. Client component importing a server-only file.
-2. Supabase query without RLS-aware client (accidentally using `admin.ts` in a normal request path).
-3. Session records persisted from `useEffect` on a client page instead of a server action.
-4. Reusing Google session tokens across unrelated searches.
-5. Computing stats in JS instead of using the views.
-6. Duplicating the calc math outside `lib/calc.ts`.
-7. Breaking guest mode in pursuit of "logged-in only" semantics.
-8. Caching Place Details response in localStorage / IndexedDB.
-9. Storing `place_id` directly on `session_records` instead of going through `restaurants.id`.
-10. Writing `any` "just for this one spot".
+Failure modes a reviewer should look for in every PR of this plan:
+
+1. **`middleware.ts` file at repo root.** Next 16 ignores it. Must be `proxy.ts`.
+2. **Synchronous `cookies()` / `headers()` / `params`.** All async in Next 16 — must be `await`ed.
+3. **Client component importing a server-only file.** Primary defense: `import "server-only"` at the top of each server module. Secondary defense: the `lib/server-only.test.ts` guard.
+4. **Service-role client used outside the `restaurants` upsert path.** `admin.ts` is only for server actions that need to bypass RLS for the shared `restaurants` table. All `session_records` writes go through the authenticated server client.
+5. **Trusting client-supplied place name / address / lat / lng.** Only `googlePlaceId` is trusted; everything else is re-fetched server-side via `fetchPlaceDetails`.
+6. **Guest → user migration without `(user_id, client_session_id)` upsert.** Must use `onConflict: 'user_id,client_session_id'` + `ignoreDuplicates: true`. Client-side "has run" flag is not enough.
+7. **Anon `SELECT` on `public.restaurants`.** Policies must be `to authenticated`, not `using (true)`.
+8. **Missing `grant select` on views.** `security_invoker` views don't inherit grants; `user_stats` and `restaurant_stats` need explicit grants to `authenticated`.
+9. **Session records persisted from `useEffect` on a client page** instead of a server action.
+10. **Reusing Google session tokens across unrelated searches.**
+11. **Autocomplete fired on < 3 characters** or without a per-token request cap — billing footgun.
+12. **Caching Place Details response in `localStorage`/`IndexedDB`.** ToS violation.
+13. **Computing stats in JS** by fetching every session and summing — use the views.
+14. **Duplicating calc math** outside `lib/calc.ts`. `computeTotals` is the single source of truth.
+15. **Breaking guest mode** in pursuit of "logged-in only" semantics.
+16. **Storing `place_id` directly on `session_records`** instead of going through `restaurants.id`.
+17. **Writing `any`** "just for this one spot" — blocked by ESLint.
+18. **Disabled-vs-hidden nav items mixed.** Pick one (hidden) and stick to it.
+19. **Pre-installing `@tanstack/react-query`** — this plan's history/stats pages are all server components, RQ is not needed and should not be added.
 
 ---
 
@@ -779,3 +946,11 @@ Changes to this plan after initial draft:
 | Date | Phase | Change | Reason |
 |---|---|---|---|
 | 2026-04-08 | — | Initial draft | Blueprint generation |
+| 2026-04-08 | 0, 1, 2 | `middleware.ts` → `proxy.ts`, `cookies()` must be awaited | Next 16 rename + async dynamic APIs. Pasting stale Supabase snippets verbatim would silently break auth. |
+| 2026-04-08 | 1 | `restaurants` RLS → `to authenticated` (not `using(true)`); views get explicit `grant select to authenticated`; `client_session_id` + unique index added | Close anon-read leak; make views actually queryable; give Phase 6 a DB-level idempotency key. |
+| 2026-04-08 | 1, 3 | `ResolvedPlace` field added to `Session` in Phase 1 (not Phase 3) | Lets Phase 2 and Phase 5 actually run in parallel without colliding on `lib/types.ts`/`lib/store.ts`. |
+| 2026-04-08 | 3 | Server action re-fetches Places Details from `placeId`; rejects client-supplied name/address/lat/lng | Close the pollution hole in the shared `restaurants` table. |
+| 2026-04-08 | 5 | Added `input.length >= 3` gate, per-token request cap, exact Base UI combobox namespaced import, rate-limit caveat comment | Billing sanity + API correctness. |
+| 2026-04-08 | 6 | DB-side idempotency via `upsert(onConflict, ignoreDuplicates)` replaces client "has run" flag; remove-by-id instead of wholesale clear | Survive network drops and double-tab races without double-inserting or losing data. |
+| 2026-04-08 | 7 | ESLint `no-explicit-any: error` replaces the grep-for-`any` gate; `server-only.test.ts` added as a belt-and-suspenders check; secret grep runs against `.next/static/` post-build | Stricter type gate + earlier detection of client-bundle leaks. |
+| 2026-04-08 | — | Google OAuth and active-draft cross-device sync moved to Out-of-scope | Keep the plan executable without human-clicks-Supabase-dashboard steps; active-draft sync is a separate design. |
