@@ -1,7 +1,14 @@
 "use client";
 import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
-import type { CityTier, EatenEntry, Item, ItemId, Session } from "./types";
+import type {
+  CityTier,
+  EatenEntry,
+  Item,
+  ItemId,
+  ResolvedPlace,
+  Session,
+} from "./types";
 
 const noopStorage: StateStorage = {
   getItem: () => null,
@@ -14,6 +21,10 @@ const browserStorage = (): StateStorage =>
 
 interface AyceStore {
   session: Session | null;
+  // Finished guest sessions waiting for guest→user migration (Phase 6).
+  // Phase 1 just declares the field; `finishMeal()` does not push into it
+  // yet. Populated by Phase 6.
+  finishedSessions: Session[];
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
   startSession: (input: {
@@ -21,8 +32,13 @@ interface AyceStore {
     buffetPrice: number;
     appetiteBudget: number;
     cityTier?: CityTier;
+    resolvedPlace?: ResolvedPlace;
   }) => void;
   endSession: () => void;
+  // Phase 5 (restaurant combobox) writes here. Passing undefined clears it
+  // so the "change" button on the combobox can reset without restarting
+  // the whole session.
+  setResolvedPlace: (place: ResolvedPlace | undefined) => void;
   addItemToLibrary: (item: Omit<Item, "id">) => void;
   removeItemFromLibrary: (id: ItemId) => void;
   logEaten: (itemId: ItemId, units: number) => void;
@@ -35,6 +51,7 @@ export const useAyceStore = create<AyceStore>()(
   persist(
     (set) => ({
       session: null,
+      finishedSessions: [],
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
       startSession: ({
@@ -42,6 +59,7 @@ export const useAyceStore = create<AyceStore>()(
         buffetPrice,
         appetiteBudget,
         cityTier,
+        resolvedPlace,
       }) =>
         set({
           session: {
@@ -50,12 +68,19 @@ export const useAyceStore = create<AyceStore>()(
             buffetPrice,
             appetiteBudget,
             cityTier,
+            resolvedPlace,
             library: [],
             eaten: [],
             startedAt: Date.now(),
           },
         }),
       endSession: () => set({ session: null }),
+      setResolvedPlace: (place) =>
+        set((state) =>
+          state.session
+            ? { session: { ...state.session, resolvedPlace: place } }
+            : state,
+        ),
       addItemToLibrary: (item) =>
         set((state) =>
           state.session

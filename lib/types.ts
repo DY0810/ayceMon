@@ -33,4 +33,82 @@ export interface Session {
   startedAt: number;
   finishedAt?: number;
   cityTier?: CityTier;
+  // Phase 1 addition (user-auth-history-places plan): the resolved Places
+  // entity for this draft session. Populated by the Phase 5 combobox; read
+  // by the Phase 3 server action at finish time. Only `googlePlaceId` is
+  // ever trusted server-side — the other fields are display-only and the
+  // server re-fetches Places Details before persisting.
+  resolvedPlace?: ResolvedPlace;
+}
+
+// ---------------------------------------------------------------------------
+// user-auth-history-places plan — persisted domain model
+//
+// These types describe rows that live in Supabase (see
+// supabase/migrations/0001_init.sql). The in-progress draft `Session`
+// above stays client-only; a *finished* session gets promoted to a
+// `SessionRecord` by the Phase 3 server action.
+// ---------------------------------------------------------------------------
+
+export type UserId = string; // Supabase auth.users.id (uuid)
+export type RestaurantId = string; // our restaurants.id (uuid), NOT the Google place_id
+export type SessionRecordId = string;
+
+/** A canonical restaurant, keyed by Google Place ID. Shared across all users.
+ *  All fields except `googlePlaceId` are populated server-side from the
+ *  Places Details API — never from client-submitted data. */
+export interface Restaurant {
+  id: RestaurantId; // our internal uuid
+  googlePlaceId: string; // Google's place_id — UNIQUE
+  name: string; // canonical display name from Places
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  createdAt: string; // ISO
+}
+
+/** Added to Session (in-progress draft buffer) above — used by Phases 3/5. */
+export interface ResolvedPlace {
+  googlePlaceId: string; // the ONLY field the server trusts
+  name: string; // display-only; server re-fetches before persist
+  formattedAddress: string; // display-only
+  lat: number; // display-only
+  lng: number; // display-only
+}
+
+/** A finished session belonging to a user. Abandoned sessions never land here. */
+export interface SessionRecord {
+  id: SessionRecordId;
+  userId: UserId;
+  restaurantId: RestaurantId;
+  clientSessionId: string; // the draft Session.id from Zustand — idempotency key
+  buffetPrice: number;
+  appetiteBudget: number;
+  library: Item[]; // snapshot at finish time
+  eaten: EatenEntry[]; // snapshot at finish time
+  totalEatenValue: number; // denormalized for fast stats
+  margin: number; // totalEatenValue - buffetPrice
+  won: boolean; // totalEatenValue >= buffetPrice
+  startedAt: string; // ISO
+  finishedAt: string; // ISO — NOT NULL, only finished sessions land in DB
+}
+
+/** Aggregated stats — materialized via a SQL view, not stored. */
+export interface UserStats {
+  totalSessions: number;
+  totalWins: number;
+  totalLosses: number;
+  totalMargin: number; // sum of margins across all sessions (can be negative)
+  bestMargin: number;
+  worstMargin: number;
+}
+
+export interface RestaurantStats {
+  restaurantId: RestaurantId;
+  restaurantName: string;
+  sessions: number;
+  wins: number;
+  losses: number;
+  totalMargin: number;
+  lastVisitedAt: string; // ISO
 }
