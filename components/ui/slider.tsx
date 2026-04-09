@@ -48,7 +48,7 @@ function SliderTrack({
     <SliderPrimitive.Track
       data-slot="slider-track"
       className={cn(
-        "relative h-2 w-full grow overflow-hidden rounded-full bg-muted",
+        "relative h-2 w-full grow overflow-hidden rounded-full bg-[#f4f4f4] dark:bg-[#262a2e]",
         className
       )}
       {...props}
@@ -63,7 +63,7 @@ function SliderIndicator({
   return (
     <SliderPrimitive.Indicator
       data-slot="slider-indicator"
-      className={cn("absolute h-full bg-primary transition-all", className)}
+      className={cn("absolute h-full bg-[#191c1f] transition-all dark:bg-white", className)}
       {...props}
     />
   )
@@ -77,7 +77,7 @@ function SliderThumb({
     <SliderPrimitive.Thumb
       data-slot="slider-thumb"
       className={cn(
-        "block size-5 rounded-full border-2 border-primary bg-background shadow-sm transition-transform outline-none focus-visible:ring-3 focus-visible:ring-ring/50 data-dragging:scale-110 disabled:pointer-events-none disabled:opacity-50",
+        "block size-5 rounded-full border-2 border-[#191c1f] bg-white transition-transform outline-none focus-visible:ring-2 focus-visible:ring-[#191c1f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white data-dragging:scale-110 disabled:pointer-events-none disabled:opacity-50 dark:border-white dark:bg-[#191c1f] dark:focus-visible:ring-offset-[#191c1f]",
         className
       )}
       {...props}
