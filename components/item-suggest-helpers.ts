@@ -1,5 +1,6 @@
-import type { PriceSource } from "@/lib/types";
-import type { SeedEntry } from "@/lib/seed-catalog";
+import type { PriceSource, CityTier } from "../lib/types";
+import type { SeedEntry } from "../lib/seed-catalog";
+import { adjustSeedValue } from "../lib/pricing";
 
 export type SuggestionEntry =
   | { kind: "seed"; entry: SeedEntry }
@@ -23,15 +24,23 @@ export interface PickedState {
 
 // Given a SuggestionEntry + source, compute the next form state patch.
 // Pure — no DOM, no store access. Tested in item-suggest-helpers.test.ts.
+//
+// `tier` is the current session's CityTier (undefined → baseline 1.0).
+// When a seed is picked, its `typicalValue` is adjusted by the tier
+// multiplier and rounded to the nearest $0.25 for display. Estimate
+// suggestions are not adjusted — the LLM (if ever wired up) is already
+// city-aware.
 export function applyPick(
   suggestion: SuggestionEntry,
-  source: PriceSource
+  source: PriceSource,
+  tier?: CityTier
 ): PickedState {
   if (suggestion.kind === "seed") {
     const { entry } = suggestion;
+    const adjusted = adjustSeedValue(entry.typicalValue, tier);
     return {
       name: entry.name,
-      alaCarteValue: String(entry.typicalValue),
+      alaCarteValue: String(adjusted),
       fillFactor: entry.fillFactor,
       category: entry.category ?? "",
       sourceKind: source,
