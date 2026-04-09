@@ -7,6 +7,19 @@ import { DollarSign, List, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAyceStore } from "@/lib/store";
+import type { CityTier } from "@/lib/types";
+
+interface TierOption {
+  readonly value: CityTier;
+  readonly label: string;
+}
+
+const CITY_TIER_OPTIONS: readonly TierOption[] = [
+  { value: "metro-premium", label: "Major metro — NYC/SF/LA (+20%)" },
+  { value: "metro-standard", label: "Standard city (default)" },
+  { value: "suburban", label: "Suburban (−10%)" },
+  { value: "rural", label: "Rural / small town (−20%)" },
+] as const;
 
 interface Requirement {
   readonly icon: typeof DollarSign;
@@ -31,6 +44,7 @@ export default function SetupPage() {
   const [restaurantName, setRestaurantName] = useState("");
   const [buffetPrice, setBuffetPrice] = useState("");
   const [appetiteBudget, setAppetiteBudget] = useState("30");
+  const [cityTier, setCityTier] = useState<CityTier>("metro-standard");
   const [errors, setErrors] = useState<FormErrors>({});
 
   function validate(): FormErrors {
@@ -59,6 +73,7 @@ export default function SetupPage() {
       restaurantName: restaurantName.trim() || undefined,
       buffetPrice: Number(buffetPrice),
       appetiteBudget: Number(appetiteBudget),
+      cityTier,
     });
     router.push("/library");
   }
@@ -162,6 +177,31 @@ export default function SetupPage() {
                   What you paid to walk in.
                 </p>
               )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="city-tier"
+                className="text-sm font-medium text-foreground"
+              >
+                City tier
+              </label>
+              <select
+                id="city-tier"
+                value={cityTier}
+                onChange={(e) => setCityTier(e.target.value as CityTier)}
+                aria-describedby="city-tier-help"
+                className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+              >
+                {CITY_TIER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p id="city-tier-help" className="text-xs text-muted-foreground">
+                Adjusts suggested à la carte prices for your area. Manual entries are never adjusted.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

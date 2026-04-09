@@ -33,6 +33,8 @@ interface Props {
   placeholder?: string;
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  // Tier-adjusted price multiplier for the dropdown chip. Defaults to 1.0.
+  multiplier?: number;
 }
 
 const MAX_SUGGESTIONS = 6;
@@ -51,9 +53,25 @@ const CUISINE_LABELS: Record<SeedEntry["cuisine"], string> = {
   other: "other",
 };
 
+// Multiply + round to nearest $0.25. Display-only; mirrors lib/pricing's
+// internal rounding so the chip and the post-pick value line up exactly.
+function adjustForDisplay(raw: number, multiplier: number): number {
+  if (raw <= 0) return 0;
+  return Math.round(raw * multiplier * 4) / 4;
+}
+
 export const ItemSuggest = forwardRef<HTMLInputElement, Props>(
   function ItemSuggest(
-    { value, onChange, onPick, inputId, placeholder, ariaInvalid, ariaDescribedBy },
+    {
+      value,
+      onChange,
+      onPick,
+      inputId,
+      placeholder,
+      ariaInvalid,
+      ariaDescribedBy,
+      multiplier = 1,
+    },
     ref
   ) {
     const [open, setOpen] = useState(false);
@@ -191,7 +209,8 @@ export const ItemSuggest = forwardRef<HTMLInputElement, Props>(
                 >
                   <span className="truncate font-medium">{entry.name}</span>
                   <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-                    ${entry.valueLow.toFixed(0)}–${entry.valueHigh.toFixed(0)}
+                    ${adjustForDisplay(entry.valueLow, multiplier).toFixed(0)}–$
+                    {adjustForDisplay(entry.valueHigh, multiplier).toFixed(0)}
                   </span>
                   <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                     {CUISINE_LABELS[entry.cuisine]}

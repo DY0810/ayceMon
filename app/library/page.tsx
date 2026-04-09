@@ -31,6 +31,7 @@ import {
   type SuggestionEntry,
 } from "@/components/item-suggest-helpers";
 import { itemSource } from "@/lib/items";
+import { adjustSeedRange, tierMultiplier } from "@/lib/pricing";
 import { useAyceStore } from "@/lib/store";
 import type { PriceSource } from "@/lib/types";
 
@@ -47,6 +48,9 @@ export default function LibraryPage() {
   const removeItemFromLibrary = useAyceStore(
     (state) => state.removeItemFromLibrary
   );
+
+  const cityTier = session?.cityTier;
+  const priceMultiplier = tierMultiplier(cityTier);
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -122,7 +126,7 @@ export default function LibraryPage() {
   }
 
   function handlePick(suggestion: SuggestionEntry, source: PriceSource) {
-    const patch = applyPick(suggestion, source);
+    const patch = applyPick(suggestion, source, cityTier);
     setName(patch.name);
     setAlaCarteValue(patch.alaCarteValue);
     setFillFactor(patch.fillFactor);
@@ -131,10 +135,13 @@ export default function LibraryPage() {
     setPickedSourceRef(patch.sourceRef);
     setPickedRefName(patch.pickedRefName);
     if (suggestion.kind === "seed") {
-      setSeedRange({
-        low: suggestion.entry.valueLow,
-        high: suggestion.entry.valueHigh,
-      });
+      setSeedRange(
+        adjustSeedRange(
+          suggestion.entry.valueLow,
+          suggestion.entry.valueHigh,
+          cityTier
+        )
+      );
     } else {
       setSeedRange({ low: suggestion.low, high: suggestion.high });
     }
@@ -228,6 +235,7 @@ export default function LibraryPage() {
                   placeholder="Wagyu short rib"
                   ariaInvalid={errors.name ? true : undefined}
                   ariaDescribedBy={errors.name ? "item-name-error" : undefined}
+                  multiplier={priceMultiplier}
                 />
                 {errors.name ? (
                   <p

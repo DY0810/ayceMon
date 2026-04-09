@@ -2,6 +2,12 @@ export type ItemId = string;
 
 export type PriceSource = "user" | "seed" | "estimate";
 
+export type CityTier =
+  | "metro-premium"
+  | "metro-standard"
+  | "suburban"
+  | "rural";
+
 export interface Item {
   id: ItemId;
   name: string;
@@ -26,4 +32,5 @@ export interface Session {
   eaten: EatenEntry[];
   startedAt: number;
   finishedAt?: number;
+  cityTier?: CityTier;
 }

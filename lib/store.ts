@@ -1,7 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
-import type { EatenEntry, Item, ItemId, Session } from "./types";
+import type { CityTier, EatenEntry, Item, ItemId, Session } from "./types";
 
 const noopStorage: StateStorage = {
   getItem: () => null,
@@ -16,7 +16,12 @@ interface AyceStore {
   session: Session | null;
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
-  startSession: (input: { restaurantName?: string; buffetPrice: number; appetiteBudget: number }) => void;
+  startSession: (input: {
+    restaurantName?: string;
+    buffetPrice: number;
+    appetiteBudget: number;
+    cityTier?: CityTier;
+  }) => void;
   endSession: () => void;
   addItemToLibrary: (item: Omit<Item, "id">) => void;
   removeItemFromLibrary: (id: ItemId) => void;
@@ -32,13 +37,19 @@ export const useAyceStore = create<AyceStore>()(
       session: null,
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
-      startSession: ({ restaurantName, buffetPrice, appetiteBudget }) =>
+      startSession: ({
+        restaurantName,
+        buffetPrice,
+        appetiteBudget,
+        cityTier,
+      }) =>
         set({
           session: {
             id: crypto.randomUUID(),
             restaurantName,
             buffetPrice,
             appetiteBudget,
+            cityTier,
             library: [],
             eaten: [],
             startedAt: Date.now(),
