@@ -58,16 +58,16 @@ export default function Home() {
     : "Start a session";
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 lg:px-8 lg:py-20">
-      <section className="flex flex-col gap-6">
+    <main className="mx-auto w-full max-w-6xl px-4 py-20 lg:px-8 lg:py-32">
+      <section className="flex flex-col gap-8">
         <h1
-          className="ayce-fade-up font-heading text-4xl font-semibold tracking-tight lg:text-6xl"
+          className="ayce-fade-up font-[var(--font-display)] text-5xl font-medium leading-none tracking-[-0.04em] text-[#191c1f] md:text-7xl lg:text-[112px] dark:text-white"
           style={{ animationDelay: "0ms" }}
         >
-          Make your money worth at AYCE.
+          Make your money<br />worth at AYCE.
         </h1>
         <p
-          className="ayce-fade-up max-w-2xl text-base text-muted-foreground lg:text-lg"
+          className="ayce-fade-up max-w-2xl text-base leading-relaxed tracking-[0.01em] text-[#505a63] lg:text-lg dark:text-[#8d969e]"
           style={{ animationDelay: "80ms" }}
         >
           Enter the buffet price, build a menu of what&apos;s available, and
@@ -80,22 +80,28 @@ export default function Home() {
         >
           <Link
             href={ctaHref}
-            className={cn(buttonVariants({ variant: "default" }), "h-11 px-6 text-base")}
+            className={cn(buttonVariants({ variant: "default", size: "lg" }))}
           >
             {ctaLabel}
             <ArrowRight className="ml-1 size-4" aria-hidden="true" />
           </Link>
+          <Link
+            href="#how-it-works"
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+          >
+            How it works
+          </Link>
         </div>
       </section>
 
-      <section className="mt-14 lg:mt-20">
+      <section id="how-it-works" className="mt-24 lg:mt-40">
         <h2
-          className="ayce-fade-up font-heading text-2xl font-semibold tracking-tight lg:text-3xl"
+          className="ayce-fade-up font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] md:text-5xl dark:text-white"
           style={{ animationDelay: "240ms" }}
         >
           How it works
         </h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((step, index) => (
             <Card
               key={step.number}
@@ -104,12 +110,12 @@ export default function Home() {
             >
               <CardHeader>
                 <div
-                  className="font-heading text-3xl font-semibold text-foreground"
+                  className="font-[var(--font-display)] text-5xl font-medium leading-none tracking-tight text-[#191c1f] dark:text-white"
                   aria-hidden="true"
                 >
                   {step.number}
                 </div>
-                <CardTitle className="text-base">{step.title}</CardTitle>
+                <CardTitle className="mt-2">{step.title}</CardTitle>
                 <CardDescription>{step.description}</CardDescription>
               </CardHeader>
               <CardContent />

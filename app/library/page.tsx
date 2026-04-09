@@ -186,13 +186,13 @@ export default function LibraryPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8">
-      <div className="mb-5 flex items-start justify-between gap-3">
+    <main className="mx-auto w-full max-w-6xl px-4 py-10 lg:px-8 lg:py-16">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight lg:text-3xl">
+          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-5xl dark:text-white">
             Library
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
             {session.restaurantName ?? "Unnamed restaurant"} · buffet $
             {session.buffetPrice}
           </p>
@@ -204,7 +204,7 @@ export default function LibraryPage() {
             if (!nextOpen) resetForm();
           }}
         >
-          <DialogTrigger render={<Button className="h-11 px-4 text-base" />}>
+          <DialogTrigger render={<Button />}>
             Add item
           </DialogTrigger>
           <DialogContent>
@@ -218,12 +218,12 @@ export default function LibraryPage() {
             <form
               onSubmit={handleSubmit}
               noValidate
-              className="flex flex-col gap-4"
+              className="flex flex-col gap-5"
             >
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <label
                   htmlFor="item-name"
-                  className="text-sm font-medium text-foreground"
+                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
                 >
                   Name
                 </label>
@@ -241,23 +241,23 @@ export default function LibraryPage() {
                   <p
                     id="item-name-error"
                     role="alert"
-                    className="text-sm text-destructive"
+                    className="text-sm text-[#e23b4a]"
                   >
                     {errors.name}
                   </p>
                 ) : null}
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
                   <label
                     htmlFor="item-value"
-                    className="text-sm font-medium text-foreground"
+                    className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
                   >
                     À la carte value (USD)
                   </label>
                   {seedRange ? (
-                    <span className="text-xs text-muted-foreground tabular-nums">
+                    <span className="text-xs text-[#505a63] tabular-nums dark:text-[#8d969e]">
                       typical ${seedRange.low.toFixed(0)}–$
                       {seedRange.high.toFixed(0)}
                     </span>
@@ -278,29 +278,28 @@ export default function LibraryPage() {
                     errors.alaCarteValue ? "item-value-error" : undefined
                   }
                   required
-                  className="h-11 text-base"
                 />
                 {errors.alaCarteValue ? (
                   <p
                     id="item-value-error"
                     role="alert"
-                    className="text-sm text-destructive"
+                    className="text-sm text-[#e23b4a]"
                   >
                     {errors.alaCarteValue}
                   </p>
                 ) : null}
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="item-fill"
-                    className="text-sm font-medium text-foreground"
+                    className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
                   >
                     Fill factor
                   </label>
                   <span
-                    className="text-sm font-medium tabular-nums text-foreground"
+                    className="text-sm font-medium tabular-nums text-[#191c1f] dark:text-white"
                     aria-live="polite"
                   >
                     {fillFactor} / 10
@@ -316,19 +315,19 @@ export default function LibraryPage() {
                     setFillFactor(Array.isArray(value) ? value[0] : value)
                   }
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
                   How filling one unit is. 1 = a single shrimp, 10 = a whole
                   pizza.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <label
                   htmlFor="item-category"
-                  className="text-sm font-medium text-foreground"
+                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
                 >
                   Category{" "}
-                  <span className="text-muted-foreground">(optional)</span>
+                  <span className="text-[#505a63] dark:text-[#8d969e]">(optional)</span>
                 </label>
                 <Input
                   id="item-category"
@@ -337,12 +336,11 @@ export default function LibraryPage() {
                   placeholder="meat, sushi, dessert…"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="h-11 text-base"
                 />
               </div>
 
               <DialogFooter>
-                <Button type="submit" className="h-11 text-base">
+                <Button type="submit">
                   Add to library
                 </Button>
               </DialogFooter>
@@ -352,35 +350,35 @@ export default function LibraryPage() {
       </div>
 
       {session.library.length > 0 && summary.bestRatio ? (
-        <div className="mb-6 hidden gap-3 sm:grid sm:grid-cols-3">
+        <div className="mb-8 hidden gap-4 sm:grid sm:grid-cols-3">
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
                 Total items
               </div>
-              <div className="mt-1 font-heading text-2xl font-semibold tabular-nums">
+              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
                 {summary.totalItems}
               </div>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
                 Library value
               </div>
-              <div className="mt-1 font-heading text-2xl font-semibold tabular-nums">
+              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
                 ${summary.totalValue.toFixed(2)}
               </div>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
                 Best $/fill ratio
               </div>
-              <div className="mt-1 font-heading text-2xl font-semibold tabular-nums">
+              <div className="mt-2 font-[var(--font-display)] text-2xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
                 <span className="truncate">{summary.bestRatio.name}</span>
-                <span className="ml-1 text-base font-normal text-muted-foreground">
+                <span className="ml-1 text-base font-normal text-[#505a63] dark:text-[#8d969e]">
                   ${summary.bestRatio.ratio.toFixed(2)}/fill
                 </span>
               </div>
@@ -390,14 +388,14 @@ export default function LibraryPage() {
       ) : null}
 
       {session.library.length === 0 ? (
-        <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-xl border border-dashed bg-muted/30 px-4 py-12 text-center">
-          <p className="font-medium text-foreground">No items yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
+          <p className="font-medium text-[#191c1f] dark:text-white">No items yet</p>
+          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
             Tap “Add item” to start building your buffet menu.
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {session.library.map((item) => (
             <li key={item.id}>
               <Card size="sm">
@@ -407,30 +405,29 @@ export default function LibraryPage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
+                      size="icon-sm"
                       aria-label={`Remove ${item.name}`}
                       onClick={() => removeItemFromLibrary(item.id)}
-                      className="size-11 text-muted-foreground hover:text-destructive"
+                      className="text-[#505a63] hover:bg-[#f4f4f4] hover:text-[#191c1f] dark:text-[#8d969e] dark:hover:bg-[#262a2e] dark:hover:text-white"
                     >
                       <Trash2 />
                     </Button>
                   </CardAction>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium tabular-nums text-foreground">
+                  <span className="font-medium tabular-nums text-[#191c1f] dark:text-white">
                     ${item.alaCarteValue.toFixed(2)}
                   </span>
-                  <span aria-hidden className="text-muted-foreground">
+                  <span aria-hidden className="text-[#505a63] dark:text-[#8d969e]">
                     ·
                   </span>
-                  <span className="text-muted-foreground tabular-nums">
+                  <span className="text-[#505a63] tabular-nums dark:text-[#8d969e]">
                     fill {item.fillFactor}/10
                   </span>
                   <div className="ml-auto flex flex-wrap items-center gap-1.5">
                     {itemSource(item) === "seed" ? (
                       <Badge
                         variant="outline"
-                        className="text-xs"
                         title="Pre-filled from seed catalog"
                       >
                         typical
@@ -439,7 +436,6 @@ export default function LibraryPage() {
                     {itemSource(item) === "estimate" ? (
                       <Badge
                         variant="outline"
-                        className="text-xs"
                         title="Pre-filled by LLM estimate"
                       >
                         estimated
