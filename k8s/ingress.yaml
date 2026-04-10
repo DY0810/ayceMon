@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aycemon-ingress
+  namespace: aycemon
+  annotations:
+    # No rewrite-target needed — Next.js handles its own routing
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: aycemon.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aycemon-service
+                port:
+                  number: 80
