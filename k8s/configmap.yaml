@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aycemon-config
+  namespace: aycemon
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
