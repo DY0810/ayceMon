@@ -80,7 +80,7 @@ export interface ResolvedPlace {
 export interface SessionRecord {
   id: SessionRecordId;
   userId: UserId;
-  restaurantId: RestaurantId;
+  restaurantId: RestaurantId | null; // null when no Google Place was resolved
   clientSessionId: string; // the draft Session.id from Zustand — idempotency key
   buffetPrice: number;
   appetiteBudget: number;

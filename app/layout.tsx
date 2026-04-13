@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/nav";
+import { GuestMigrationEffect } from "@/components/guest-migration-effect";
+import { NavServer } from "@/components/nav-server";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -35,7 +36,8 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Nav />
+        <NavServer />
+        <GuestMigrationEffect />
         <div className="flex-1">{children}</div>
       </body>
     </html>
