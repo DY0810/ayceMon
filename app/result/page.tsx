@@ -162,11 +162,9 @@ export default function ResultPage() {
     }
 
     // Phase 7: per-user grouping is gated on `contributors` being
-    // non-empty. /result is only reached by guest solo flow today
-    // (signed-in + shared sessions route to /history/[id]), so this
-    // branch is inert for the current user paths — but the plan asks
-    // for the check to be in place so a future solo→shared bridge
-    // lights up automatically.
+    // non-empty. All finish flows (guest, signed-in solo, shared) now
+    // route to /result, so this branch lights up for shared sessions
+    // whose `contributors` jsonb was populated by finalizeSharedSession.
     const groups: UserGroup[] =
       session.contributors && session.contributors.length > 0
         ? buildUserGroups(session.library, session.eaten, itemsById)
