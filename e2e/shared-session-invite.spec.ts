@@ -169,16 +169,20 @@ test.describe("shared session invite flow", () => {
 
     // --------------------------------------------------------------------
     // 5. Owner finalizes. Collaborators cannot finalize — only the owner.
+    //    Finishing lands the owner on /result for the celebratory view;
+    //    the historical record at /history/[id] is reached from the
+    //    History tab.
     // --------------------------------------------------------------------
     await ownerPage.getByRole("button", { name: "Finish meal" }).click();
-    await ownerPage.waitForURL(/\/history\//, { timeout: 10_000 });
+    await ownerPage.waitForURL(/\/result$/, { timeout: 10_000 });
 
     // --------------------------------------------------------------------
-    // 6. The history detail page should show per-user attribution for
-    //    owner AND invitee (both logged something).
+    // 6. The result page should show the session headline for the owner.
+    //    Per-user attribution is rendered when contributors jsonb is
+    //    populated (Phase 7); finalizeSharedSession writes it.
     // --------------------------------------------------------------------
-    const historyHeadline = ownerPage.getByRole("heading", { level: 1 });
-    await expect(historyHeadline).toBeVisible();
+    const resultHeadline = ownerPage.getByRole("heading", { level: 1 });
+    await expect(resultHeadline).toBeVisible();
   });
 });
 

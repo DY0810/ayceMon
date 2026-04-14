@@ -101,12 +101,13 @@ test.describe("signed-in path", () => {
       .getByRole("button", { name: /Add one Wagyu beef/i })
       .click();
 
-    // 5. Finish the meal. Signed-in users always save to DB (restaurant_id
-    //    is nullable now), so this routes to /history/[id].
+    // 5. Finish the meal. Signed-in users save to DB (restaurant_id is
+    //    nullable now) and land on /result for the celebratory view;
+    //    /history/[id] is reached from the History tab.
     await page.getByRole("button", { name: "Finish meal" }).click();
-    await page.waitForURL(/\/history\//, { timeout: 10_000 });
+    await page.waitForURL(/\/result$/, { timeout: 10_000 });
 
-    // 6. The detail page should show the session headline.
+    // 6. The result page should show the session headline.
     const headline = page.getByRole("heading", { level: 1 });
     await expect(headline).toBeVisible();
     // total = 16*2 + 22*1 = 54, buffet = 40 → won
