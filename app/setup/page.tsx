@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { DollarSign, List, Utensils } from "lucide-react";
 
@@ -80,23 +80,39 @@ export default function SetupPage() {
   // users can't start a second session on top. Finished-draft sessions
   // (finishedAt set but not yet cleared) still allow /setup so the user
   // can begin their next meal.
+  //
+  // The check fires exactly ONCE per mount, after hydration — checking
+  // on every state change would racy: submitting the form calls
+  // startSession(), which flips the session to in-progress, which would
+  // then redirect to /tracker before router.push("/library") lands.
   const activeSession = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
   const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
   const sharedSessionFinishedAt = useAyceStore(
     (state) => state.sharedSessionFinishedAt,
   );
-  const soloInProgress =
-    activeSession !== null && !activeSession.finishedAt;
-  const sharedInProgress =
-    sharedSessionId !== null && sharedSessionFinishedAt === null;
-  const redirectingBecauseActive =
-    hasHydrated && (soloInProgress || sharedInProgress);
+  const arrivalCheckedRef = useRef(false);
+  const [redirectingBecauseActive, setRedirectingBecauseActive] =
+    useState(false);
   useEffect(() => {
-    if (redirectingBecauseActive) {
+    if (!hasHydrated) return;
+    if (arrivalCheckedRef.current) return;
+    arrivalCheckedRef.current = true;
+    const soloInProgress =
+      activeSession !== null && !activeSession.finishedAt;
+    const sharedInProgress =
+      sharedSessionId !== null && sharedSessionFinishedAt === null;
+    if (soloInProgress || sharedInProgress) {
+      setRedirectingBecauseActive(true);
       router.replace("/tracker");
     }
-  }, [redirectingBecauseActive, router]);
+  }, [
+    hasHydrated,
+    activeSession,
+    sharedSessionId,
+    sharedSessionFinishedAt,
+    router,
+  ]);
 
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | undefined>(
     undefined,
