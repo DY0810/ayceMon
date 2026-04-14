@@ -158,7 +158,13 @@ export const useAyceStore = create<AyceStore>()(
                         : { ...e, units: nextUnits, grams }
                       : e,
                   );
-          } else if (units > 0) {
+          } else if (units > 0 || grams !== undefined) {
+            // Phase 3 (+g button): allow grams-only entries for new items.
+            // When a user taps +g first (before any +1) the call arrives as
+            // (itemId, 0, N); we persist `units: 0, grams: N` so
+            // computeFullness can still sum the mass. The shared-session
+            // path (logSharedEaten) already accepts units=0 entries, so
+            // this keeps the dual-path semantically symmetric.
             const entry: EatenEntry =
               grams === undefined
                 ? { itemId, units }
