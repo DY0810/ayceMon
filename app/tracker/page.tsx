@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { finishAndSaveSession } from "@/app/actions/sessions";
@@ -15,8 +15,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { margin, totalEatenValue } from "@/lib/calc";
+import { computeFullness, margin, totalEatenValue } from "@/lib/calc";
+import { formatGrams } from "@/lib/format";
+import { selectLogEatenTarget } from "@/lib/log-eaten";
 import { useAyceStore } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import type { Item, ItemId } from "@/lib/types";
@@ -43,7 +46,10 @@ export default function TrackerPage() {
 
   const logEaten = useCallback(
     (itemId: ItemId, units: number, grams?: number) => {
-      if (!sharedSessionId) {
+      // Dual-path dispatch (Appendix B #16). The selector is a pure helper
+      // so its own unit test anchors the branch rule — see lib/log-eaten.ts.
+      const target = selectLogEatenTarget(sharedSessionId);
+      if (target === "solo" || !sharedSessionId) {
         soloLogEaten(itemId, units, grams);
         return;
       }
@@ -51,7 +57,10 @@ export default function TrackerPage() {
       // derived from auth.uid() inside the server action (invariant #14).
       // `units` may be negative for −1 buttons — RLS/check allows it only
       // through a delete path, so we block negatives at the UI layer.
-      if (units <= 0) return;
+      // Grams-only writes (Phase 3 `+g`) arrive as units=0 + grams>0; they
+      // are valid — the server action's input validator accepts units=0.
+      if (units < 0) return;
+      if (units === 0 && !(typeof grams === "number" && grams > 0)) return;
       setLogError(null);
       void logSharedEaten({ sessionId: sharedSessionId, itemId, units, grams })
         .then((result) => {
@@ -116,7 +125,7 @@ export default function TrackerPage() {
       return {
         totalValue: 0,
         marginValue: 0,
-        unitsConsumed: 0,
+        gramsConsumed: 0,
         itemsById: new Map<ItemId, Item>(),
         unitsByItemId: new Map<ItemId, number>(),
       };
@@ -125,17 +134,20 @@ export default function TrackerPage() {
     for (const item of session.library) itemsById.set(item.id, item);
 
     const unitsByItemId = new Map<ItemId, number>();
-    let unitsConsumed = 0;
     for (const entry of session.eaten) {
       unitsByItemId.set(entry.itemId, entry.units);
-      const item = itemsById.get(entry.itemId);
-      if (item) unitsConsumed += entry.units * item.fillFactor;
     }
+
+    const { grams: gramsConsumed } = computeFullness(
+      session.library,
+      session.eaten,
+      session.appetiteBudgetGrams,
+    );
 
     return {
       totalValue: totalEatenValue(session),
       marginValue: margin(session),
-      unitsConsumed,
+      gramsConsumed,
       itemsById,
       unitsByItemId,
     };
@@ -144,10 +156,14 @@ export default function TrackerPage() {
   // Derived values — safe to compute with zero defaults when session is
   // null, so the hook calls below stay unconditional (rules-of-hooks).
   const buffetPrice = session?.buffetPrice ?? 0;
-  const appetiteBudget = session?.appetiteBudget ?? 0;
+  const appetiteBudgetGrams = session?.appetiteBudgetGrams ?? null;
   const rawPercent =
     buffetPrice > 0 ? (totals.totalValue / buffetPrice) * 100 : 0;
   const cappedPercent = Math.min(100, Math.max(0, rawPercent));
+  const fullnessLabel =
+    appetiteBudgetGrams != null && appetiteBudgetGrams > 0
+      ? `${formatGrams(totals.gramsConsumed)} / ${formatGrams(appetiteBudgetGrams)}`
+      : formatGrams(totals.gramsConsumed);
   const wins = buffetPrice > 0 && totals.totalValue >= buffetPrice;
   // Tone (color) reads from the TARGET margin, not the displayed/tweened
   // value, so the color doesn't flicker as the tween crosses zero.
@@ -296,7 +312,7 @@ export default function TrackerPage() {
           <div className="flex flex-col gap-0.5">
             <dt className="text-[#505a63] dark:text-[#8d969e]">Fill</dt>
             <dd className="font-semibold tabular-nums text-[#191c1f] dark:text-white">
-              {formatUnits(totals.unitsConsumed)} / {appetiteBudget}
+              {fullnessLabel}
             </dd>
           </div>
         </dl>
@@ -346,7 +362,7 @@ export default function TrackerPage() {
           <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
             <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Fill</dt>
             <dd className="text-base font-semibold tabular-nums text-[#191c1f] dark:text-white">
-              {formatUnits(totals.unitsConsumed)} / {appetiteBudget}
+              {fullnessLabel}
             </dd>
           </div>
         </dl>
@@ -389,59 +405,9 @@ export default function TrackerPage() {
           <ul className="flex flex-col gap-4 lg:grid lg:grid-cols-2 xl:grid-cols-2 lg:gap-5">
             {session.library.map((item) => {
               const units = totals.unitsByItemId.get(item.id) ?? 0;
-              const lineTotal = units * item.alaCarteValue;
               return (
                 <li key={item.id}>
-                  <Card size="sm">
-                    <CardHeader>
-                      <CardTitle>{item.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      <div className="flex items-baseline justify-between gap-2 text-sm tracking-[0.01em]">
-                        <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
-                          ${item.alaCarteValue.toFixed(2)} · fill{" "}
-                          {item.fillFactor}/10
-                        </span>
-                        <span className="tabular-nums text-[#191c1f] dark:text-white">
-                          <span className="font-semibold">
-                            {formatUnits(units)}
-                          </span>{" "}
-                          <span className="text-[#505a63] dark:text-[#8d969e]">
-                            (${lineTotal.toFixed(2)})
-                          </span>
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          aria-label={`Remove one ${item.name}`}
-                          onClick={() => logEaten(item.id, -1)}
-                          disabled={units === 0}
-                        >
-                          −1
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          aria-label={`Add half a ${item.name}`}
-                          onClick={() => logEaten(item.id, 0.5)}
-                        >
-                          +0.5
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          aria-label={`Add one ${item.name}`}
-                          onClick={() => logEaten(item.id, 1)}
-                        >
-                          +1
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ItemCard item={item} units={units} onLog={logEaten} />
                 </li>
               );
             })}
@@ -478,6 +444,179 @@ export default function TrackerPage() {
 
 function formatUnits(units: number): string {
   return Number.isInteger(units) ? units.toString() : units.toFixed(1);
+}
+
+interface ItemCardProps {
+  item: Item;
+  units: number;
+  onLog: (itemId: ItemId, units: number, grams?: number) => void;
+}
+
+function ItemCard({ item, units, onLog }: ItemCardProps) {
+  const lineTotal = units * item.alaCarteValue;
+  const [gramsOpen, setGramsOpen] = useState(false);
+  const [gramsValue, setGramsValue] = useState("");
+  const [gramsError, setGramsError] = useState<string | null>(null);
+  // Focus returns to the `+g` button after a successful submit. Using a
+  // queueMicrotask() callback avoids the setTimeout race plan task 3 warns
+  // against — the ref is stable, and React will have unmounted the input
+  // by the time the microtask runs.
+  const addGramsButtonRef = useRef<HTMLButtonElement>(null);
+
+  function openGrams() {
+    setGramsValue("");
+    setGramsError(null);
+    setGramsOpen(true);
+  }
+
+  function closeGramsAndRefocus() {
+    setGramsOpen(false);
+    setGramsValue("");
+    setGramsError(null);
+    queueMicrotask(() => {
+      addGramsButtonRef.current?.focus();
+    });
+  }
+
+  function handleGramsSubmit() {
+    const parsed = Number(gramsValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setGramsError("Enter a number greater than 0.");
+      return;
+    }
+    onLog(item.id, 0, parsed);
+    closeGramsAndRefocus();
+  }
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{item.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-baseline justify-between gap-2 text-sm tracking-[0.01em]">
+          <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
+            ${item.alaCarteValue.toFixed(2)} · fill {item.fillFactor}/10
+          </span>
+          <span className="tabular-nums text-[#191c1f] dark:text-white">
+            <span className="font-semibold">{formatUnits(units)}</span>{" "}
+            <span className="text-[#505a63] dark:text-[#8d969e]">
+              (${lineTotal.toFixed(2)})
+            </span>
+          </span>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label={`Remove one ${item.name}`}
+            onClick={() => onLog(item.id, -1)}
+            disabled={units === 0}
+          >
+            −1
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-label={`Add half a ${item.name}`}
+            onClick={() => onLog(item.id, 0.5)}
+          >
+            +0.5
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            aria-label={`Add one ${item.name}`}
+            onClick={() => onLog(item.id, 1)}
+          >
+            +1
+          </Button>
+          <Button
+            ref={addGramsButtonRef}
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label={`Log grams for ${item.name}`}
+            aria-expanded={gramsOpen}
+            onClick={openGrams}
+            disabled={gramsOpen}
+          >
+            +g
+          </Button>
+        </div>
+        {gramsOpen ? (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGramsSubmit();
+            }}
+          >
+            <label
+              htmlFor={`grams-${item.id}`}
+              className="text-xs font-medium tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+            >
+              Grams to log for {item.name}
+            </label>
+            <Input
+              id={`grams-${item.id}`}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              autoFocus
+              className="h-9 w-24"
+              value={gramsValue}
+              onChange={(e) => {
+                setGramsValue(e.target.value);
+                // Clear the error as soon as the user edits — nit from
+                // code review. Keeps the form responsive instead of
+                // forcing a cancel/resubmit to dismiss stale feedback.
+                if (gramsError) setGramsError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  closeGramsAndRefocus();
+                }
+              }}
+              aria-invalid={gramsError ? true : undefined}
+              aria-describedby={
+                gramsError ? `grams-${item.id}-error` : undefined
+              }
+            />
+            <Button
+              type="submit"
+              size="sm"
+              aria-label={`Submit grams for ${item.name}`}
+            >
+              Add
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeGramsAndRefocus}
+              aria-label={`Cancel grams input for ${item.name}`}
+            >
+              Cancel
+            </Button>
+          </form>
+        ) : null}
+        {gramsError ? (
+          <p
+            id={`grams-${item.id}-error`}
+            role="alert"
+            className="text-xs text-[#e23b4a]"
+          >
+            {gramsError}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
 }
 
 function EmptyState({

@@ -11,9 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { didYouWin, margin, totalEatenValue } from "@/lib/calc";
+import { computeFullness, didYouWin, margin, totalEatenValue } from "@/lib/calc";
+import { formatGrams } from "@/lib/format";
 import { useAyceStore } from "@/lib/store";
-import type { Item, ItemId } from "@/lib/types";
+import type { EatenEntry, Item, ItemId } from "@/lib/types";
 
 // Threshold for the "right on the line" headline (anti-pattern guard
 // from PLAN.md Phase 5: don't celebrate or mourn pennies).
@@ -25,6 +26,11 @@ interface BreakdownRow {
   units: number;
   perUnitValue: number;
   lineTotal: number;
+  // Phase 3: grams per line. null when the entry never had an explicit
+  // grams override AND the item has no `gramsPerUnit` — i.e. the grams
+  // source is unknown. The table renders "—" for null, never "0g" (which
+  // would misleadingly imply a user-weighed zero-gram portion).
+  gramsDisplay: number | null;
 }
 
 export default function ResultPage() {
@@ -49,6 +55,8 @@ export default function ResultPage() {
         marginValue: 0,
         wins: false,
         rows: [] as BreakdownRow[],
+        gramsConsumed: 0,
+        budgetGrams: null as number | null,
       };
     }
     const itemsById = new Map<ItemId, Item>();
@@ -67,14 +75,23 @@ export default function ResultPage() {
         units: entry.units,
         perUnitValue: item.alaCarteValue,
         lineTotal: item.alaCarteValue * entry.units,
+        gramsDisplay: resolveGramsDisplay(entry, item),
       });
     }
+
+    const { grams: gramsConsumed } = computeFullness(
+      session.library,
+      session.eaten,
+      session.appetiteBudgetGrams,
+    );
 
     return {
       totalValue: totalEatenValue(session),
       marginValue: margin(session),
       wins: didYouWin(session),
       rows,
+      gramsConsumed,
+      budgetGrams: session.appetiteBudgetGrams ?? null,
     };
   }, [session]);
 
@@ -82,8 +99,13 @@ export default function ResultPage() {
     return null;
   }
 
-  const { totalValue, marginValue, wins, rows } = summary;
+  const { totalValue, marginValue, wins, rows, gramsConsumed, budgetGrams } =
+    summary;
   const buffetPrice = session.buffetPrice;
+  const fullnessLabel =
+    budgetGrams != null && budgetGrams > 0
+      ? `${formatGrams(gramsConsumed)} of ${formatGrams(budgetGrams)}`
+      : formatGrams(gramsConsumed);
 
   const onTheLine = Math.abs(marginValue) <= LINE_EPSILON;
   const headline = onTheLine
@@ -174,6 +196,14 @@ export default function ResultPage() {
                   {formattedMargin}
                 </dd>
               </div>
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                  Fullness
+                </dt>
+                <dd className="font-medium text-[#191c1f] dark:text-white">
+                  {fullnessLabel}
+                </dd>
+              </div>
             </dl>
           </CardContent>
           <CardFooter className="flex-col items-stretch gap-3">
@@ -215,6 +245,9 @@ export default function ResultPage() {
                       Units
                     </th>
                     <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
+                      Grams
+                    </th>
+                    <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
                       Per unit
                     </th>
                     <th scope="col" className="w-20 py-2 pl-2 text-right font-medium">
@@ -230,6 +263,11 @@ export default function ResultPage() {
                       </td>
                       <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
                         {formatUnits(row.units)}
+                      </td>
+                      <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+                        {row.gramsDisplay === null
+                          ? "—"
+                          : formatGrams(row.gramsDisplay)}
                       </td>
                       <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
                         ${row.perUnitValue.toFixed(2)}
@@ -269,6 +307,14 @@ export default function ResultPage() {
                   {formattedMargin}
                 </dd>
               </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                  Fullness
+                </dt>
+                <dd className="font-medium text-[#191c1f] dark:text-white">
+                  {fullnessLabel}
+                </dd>
+              </div>
             </dl>
           </CardFooter>
         </Card>
@@ -299,4 +345,23 @@ export default function ResultPage() {
 // units render consistently (e.g. 0.5, 1, 1.5) across both screens.
 function formatUnits(units: number): string {
   return Number.isInteger(units) ? units.toString() : units.toFixed(1);
+}
+
+// Phase 3: resolve a per-row grams value for the Breakdown table. Order:
+//   1. entry.grams (explicit — 0 is a valid user-weighed value).
+//   2. entry.units × item.gramsPerUnit (derived, when both are finite).
+//   3. null → caller renders "—". Never render "0g" for an unknown source.
+function resolveGramsDisplay(entry: EatenEntry, item: Item): number | null {
+  if (typeof entry.grams === "number" && Number.isFinite(entry.grams)) {
+    return entry.grams;
+  }
+  if (
+    typeof item.gramsPerUnit === "number" &&
+    Number.isFinite(item.gramsPerUnit) &&
+    typeof entry.units === "number" &&
+    Number.isFinite(entry.units)
+  ) {
+    return entry.units * item.gramsPerUnit;
+  }
+  return null;
 }
