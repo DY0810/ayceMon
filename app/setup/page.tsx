@@ -6,8 +6,9 @@ import { DollarSign, List, Utensils } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RestaurantCombobox } from "@/components/restaurant-combobox";
 import { useAyceStore } from "@/lib/store";
-import type { CityTier } from "@/lib/types";
+import type { CityTier, ResolvedPlace } from "@/lib/types";
 
 interface TierOption {
   readonly value: CityTier;
@@ -41,11 +42,15 @@ export default function SetupPage() {
   const router = useRouter();
   const startSession = useAyceStore((state) => state.startSession);
 
-  const [restaurantName, setRestaurantName] = useState("");
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | undefined>(
+    undefined,
+  );
+  const [manualName, setManualName] = useState("");
   const [buffetPrice, setBuffetPrice] = useState("");
   const [appetiteBudget, setAppetiteBudget] = useState("30");
   const [cityTier, setCityTier] = useState<CityTier>("metro-standard");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [resolving, setResolving] = useState(false);
 
   function validate(): FormErrors {
     const next: FormErrors = {};
@@ -66,14 +71,17 @@ export default function SetupPage() {
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (resolving) return;
     const next = validate();
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+    const derivedName = resolvedPlace?.name ?? manualName.trim();
     startSession({
-      restaurantName: restaurantName.trim() || undefined,
+      restaurantName: derivedName || undefined,
       buffetPrice: Number(buffetPrice),
       appetiteBudget: Number(appetiteBudget),
       cityTier,
+      resolvedPlace,
     });
     router.push("/library");
   }
@@ -121,23 +129,13 @@ export default function SetupPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="restaurant-name"
-                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
-              >
-                Restaurant <span className="text-[#505a63] dark:text-[#8d969e]">(optional)</span>
-              </label>
-              <Input
-                id="restaurant-name"
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                placeholder="KBBQ Town"
-                value={restaurantName}
-                onChange={(e) => setRestaurantName(e.target.value)}
-              />
-            </div>
+            <RestaurantCombobox
+              resolvedPlace={resolvedPlace}
+              onResolvedPlaceChange={setResolvedPlace}
+              manualName={manualName}
+              onManualNameChange={setManualName}
+              onResolvingChange={setResolving}
+            />
 
             <div className="flex flex-col gap-2">
               <label
@@ -246,8 +244,8 @@ export default function SetupPage() {
               )}
             </div>
 
-            <Button type="submit" size="lg" className="mt-2 w-full">
-              Start session
+            <Button type="submit" size="lg" className="mt-2 w-full" disabled={resolving}>
+              {resolving ? "Loading restaurant…" : "Start session"}
             </Button>
           </form>
         </div>

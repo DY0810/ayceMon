@@ -77,16 +77,15 @@ export default function LibraryPage() {
     }
   }, [hasHydrated, session, router]);
 
-  const library = session?.library ?? [];
-
   const summary = useMemo(() => {
-    if (library.length === 0) {
+    const lib = session?.library ?? [];
+    if (lib.length === 0) {
       return { totalItems: 0, totalValue: 0, bestRatio: null as null | { name: string; ratio: number } };
     }
-    const totalItems = library.length;
-    const totalValue = library.reduce((acc, item) => acc + item.alaCarteValue, 0);
+    const totalItems = lib.length;
+    const totalValue = lib.reduce((acc, item) => acc + item.alaCarteValue, 0);
     let bestRatio: { name: string; ratio: number } | null = null;
-    for (const item of library) {
+    for (const item of lib) {
       const denom = item.fillFactor > 0 ? item.fillFactor : 1;
       const ratio = item.alaCarteValue / denom;
       if (bestRatio === null || ratio > bestRatio.ratio) {
@@ -94,7 +93,7 @@ export default function LibraryPage() {
       }
     }
     return { totalItems, totalValue, bestRatio };
-  }, [library]);
+  }, [session?.library]);
 
   if (!hasHydrated || session === null) {
     return null;

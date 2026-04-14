@@ -45,6 +45,7 @@ interface AyceStore {
   clearEaten: () => void;
   finishMeal: () => void;
   resumeMeal: () => void;
+  removeFinishedSession: (id: string) => void;
 }
 
 export const useAyceStore = create<AyceStore>()(
@@ -129,17 +130,31 @@ export const useAyceStore = create<AyceStore>()(
           state.session ? { session: { ...state.session, eaten: [] } } : state
         ),
       finishMeal: () =>
-        set((state) =>
-          state.session
-            ? { session: { ...state.session, finishedAt: Date.now() } }
-            : state
-        ),
+        set((state) => {
+          if (!state.session) return state;
+          const finished = { ...state.session, finishedAt: Date.now() };
+          return {
+            session: finished,
+            // Deep-copy the finished session into finishedSessions so the
+            // guest→user migration (Phase 6) can drain it into session_records
+            // on first sign-in. We push regardless of whether resolvedPlace is
+            // set — sessions without a place go to the /import UI later.
+            finishedSessions: [
+              ...state.finishedSessions,
+              JSON.parse(JSON.stringify(finished)) as Session,
+            ],
+          };
+        }),
       resumeMeal: () =>
         set((state) =>
           state.session
             ? { session: { ...state.session, finishedAt: undefined } }
             : state
         ),
+      removeFinishedSession: (id) =>
+        set((state) => ({
+          finishedSessions: state.finishedSessions.filter((s) => s.id !== id),
+        })),
     }),
     {
       name: "ayce-mon-storage",

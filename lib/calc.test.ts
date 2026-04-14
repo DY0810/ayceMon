@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { didYouWin, margin, totalEatenValue } from "./calc";
+import { computeTotals, didYouWin, margin, totalEatenValue } from "./calc";
 import type { EatenEntry, Item, Session } from "./types";
 
 function makeItem(
@@ -197,5 +197,30 @@ describe("didYouWin", () => {
     );
     expect(() => didYouWin(session)).not.toThrow();
     expect(didYouWin(session)).toBe(false);
+  });
+});
+
+describe("computeTotals (SessionRecord-shaped inputs)", () => {
+  it("produces correct totals from a finished session's library/eaten snapshot", () => {
+    // Simulates a SessionRecord snapshot: library and eaten are plain arrays,
+    // not wrapped in a Session object. This proves the server action path
+    // (Phase 3) can feed computeTotals directly.
+    const library: Item[] = [
+      makeItem("a", "Wagyu Short Rib", 22, 7),
+      makeItem("b", "Salmon Sashimi", 14, 3),
+      makeItem("c", "Edamame", 4, 1),
+    ];
+    const eaten: EatenEntry[] = [
+      { itemId: "a", units: 2 },   // 44
+      { itemId: "b", units: 1.5 }, // 21
+      { itemId: "c", units: 1 },   // 4
+    ];
+    const buffetPrice = 35;
+
+    const result = computeTotals(library, eaten, buffetPrice);
+
+    expect(result.total).toBeCloseTo(69, 10);
+    expect(result.margin).toBeCloseTo(34, 10);
+    expect(result.won).toBe(true);
   });
 });

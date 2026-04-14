@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { finishAndSaveSession } from "@/app/actions/sessions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,6 +14,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { margin, totalEatenValue } from "@/lib/calc";
 import { useAyceStore } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
 import type { Item, ItemId } from "@/lib/types";
 import { useAnimatedNumber } from "@/lib/use-animated-number";
 
@@ -22,6 +24,29 @@ export default function TrackerPage() {
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
   const logEaten = useAyceStore((state) => state.logEaten);
   const finishMeal = useAyceStore((state) => state.finishMeal);
+
+  // Track the current auth state so the finish handler can branch between
+  // the guest flow (local-only, route to /result) and the signed-in flow
+  // (call finishAndSaveSession, route to /history/[id]). Tri-state: null
+  // before resolution, then { id } or false once resolved.
+  const [authUser, setAuthUser] = useState<{ id: string } | null | false>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled) return;
+      setAuthUser(data.user ? { id: data.user.id } : false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_ev, ses) => {
+      setAuthUser(ses?.user ? { id: ses.user.id } : false);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+  const [finishPending, setFinishPending] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
 
   // Redirect guard: no session → /setup. Wait for hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
@@ -108,9 +133,47 @@ export default function TrackerPage() {
     return null;
   }
 
-  function handleFinish() {
+  async function handleFinish() {
+    if (!session) return;
+    if (finishPending) return;
+
+    // Guest (not signed in): keep the pre-Phase-3 behavior — local-only
+    // finish, route to /result. Phase 6 promotes these to the DB after
+    // first login via finishedSessions.
+    if (authUser === false) {
+      finishMeal();
+      router.push("/result");
+      return;
+    }
+
+    // Still resolving the client-side auth state on mount (<100ms in
+    // practice). Bail — the user can tap Finish again in a moment.
+    if (authUser === null) {
+      return;
+    }
+
+    setFinishPending(true);
+    setFinishError(null);
+    const result = await finishAndSaveSession({
+      clientSessionId: session.id,
+      googlePlaceId: session.resolvedPlace?.googlePlaceId,
+      restaurantName: session.restaurantName,
+      buffetPrice: session.buffetPrice,
+      appetiteBudget: session.appetiteBudget,
+      library: session.library,
+      eaten: session.eaten,
+      startedAt: new Date(session.startedAt).toISOString(),
+    });
+    if (!result.ok) {
+      setFinishPending(false);
+      setFinishError("Could not save this meal. Please try again.");
+      return;
+    }
+    // Mark the draft as finished (matches the guest flow) and navigate to
+    // the persisted detail page. The session lingers in the store with
+    // finishedAt set; a future /setup submit overwrites it via startSession.
     finishMeal();
-    router.push("/result");
+    router.push(`/history/${result.id}`);
   }
 
   return (
@@ -211,14 +274,22 @@ export default function TrackerPage() {
           </div>
         </dl>
         {session.library.length > 0 ? (
-          <Button
-            type="button"
-            onClick={handleFinish}
-            size="lg"
-            className="w-full"
-          >
-            Finish meal
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              onClick={handleFinish}
+              size="lg"
+              className="w-full"
+              disabled={finishPending}
+            >
+              {finishPending ? "Saving…" : "Finish meal"}
+            </Button>
+            {finishError ? (
+              <p role="alert" className="text-sm text-[#e23b4a]">
+                {finishError}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </aside>
 
@@ -296,15 +367,21 @@ export default function TrackerPage() {
         )}
 
         {session.library.length > 0 ? (
-          <div className="mt-8 lg:hidden">
+          <div className="mt-8 flex flex-col gap-3 lg:hidden">
             <Button
               type="button"
               onClick={handleFinish}
               size="lg"
               className="w-full"
+              disabled={finishPending}
             >
-              Finish meal
+              {finishPending ? "Saving…" : "Finish meal"}
             </Button>
+            {finishError ? (
+              <p role="alert" className="text-sm text-[#e23b4a]">
+                {finishError}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -48,5 +48,8 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
+# Supabase CLI cache (pooler URL, project ref)
+supabase/.temp/
+
 # local editor settings
 .ide/settings.local.json
