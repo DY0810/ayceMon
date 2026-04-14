@@ -102,8 +102,17 @@ export default function ResultPage() {
   // a prior shared-session finish doesn't leak into a later solo flow.
   useEffect(() => {
     if (!sharedSessionId) return;
+    // Don't clobber a previously-correct mirror with `null` while the first
+    // poll after remount is still in flight — otherwise the /result nav
+    // link disappears for the duration of the request.
+    if (shared.loading && sharedSession === null) return;
     setSharedSessionFinishedAt(sharedSession?.finishedAt ?? null);
-  }, [sharedSessionId, sharedSession?.finishedAt, setSharedSessionFinishedAt]);
+  }, [
+    sharedSessionId,
+    shared.loading,
+    sharedSession,
+    setSharedSessionFinishedAt,
+  ]);
 
   const summary = useMemo(() => {
     if (!session) {
