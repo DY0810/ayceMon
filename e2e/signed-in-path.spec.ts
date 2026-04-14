@@ -64,19 +64,25 @@ test.describe("signed-in path", () => {
       page.getByRole("heading", { name: "Start a session" }),
     ).toBeVisible();
 
-    // Fill the restaurant field — the combobox renders an input with
-    // label "Restaurant". Type a name; if the Places API is not configured
-    // the combobox just stores it as a manual name.
-    await page.getByLabel(/restaurant/i).fill("E2E Test Buffet");
+    // The restaurant combobox only writes a manualName when explicitly
+    // switched into manual mode (Phase 5 rework). Trigger the popup with
+    // 3 chars, click "enter manually", then fill the manual input.
+    await page.getByLabel(/restaurant/i).fill("e2e");
+    await page
+      .getByRole("button", { name: /enter manually/i })
+      .click();
+    await page.locator("#restaurant-name-manual").fill("E2E Test Buffet");
     await page.getByLabel(/buffet price/i).fill("40");
-    await page.getByLabel(/appetite budget/i).fill("25");
+    // Phase 2: appetite budget is a preset-chip group. Pick "Typical"
+    // (1200 g) — legacy appetiteBudget=50 is written by the store.
+    await page.getByRole("button", { name: /^Typical/ }).click();
     await page.getByRole("button", { name: "Start session" }).click();
     await expect(page).toHaveURL(/\/library$/);
 
     // 3. Add 3 items to the library.
-    await addLibraryItem(page, { name: "Salmon sashimi", value: "16", fillFactor: 3 });
-    await addLibraryItem(page, { name: "Wagyu beef", value: "22", fillFactor: 7 });
-    await addLibraryItem(page, { name: "Edamame", value: "4", fillFactor: 1 });
+    await addLibraryItem(page, { name: "Salmon sashimi", value: "16", grams: 90 });
+    await addLibraryItem(page, { name: "Wagyu beef", value: "22", grams: 210 });
+    await addLibraryItem(page, { name: "Edamame", value: "4", grams: 30 });
 
     // 4. Navigate to tracker and eat some items.
     await page.goto("/tracker");
@@ -128,12 +134,15 @@ test.describe("signed-in path", () => {
 interface LibraryItemInput {
   name: string;
   value: string;
-  fillFactor: number;
+  grams: number;
 }
 
+// Phase 2: the 1–10 fill-factor slider was replaced with a numeric
+// grams-per-unit input; the legacy fillFactor is derived on submit
+// (see guest-path.spec.ts for the matching helper).
 async function addLibraryItem(
   page: Page,
-  { name, value, fillFactor }: LibraryItemInput,
+  { name, value, grams }: LibraryItemInput,
 ): Promise<void> {
   await page.getByRole("button", { name: "Add item" }).click();
 
@@ -142,15 +151,7 @@ async function addLibraryItem(
 
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel(/à la carte value/i).fill(value);
-
-  const slider = dialog.getByRole("slider");
-  await slider.focus();
-  const delta = fillFactor - 5;
-  const key = delta < 0 ? "ArrowLeft" : "ArrowRight";
-  for (let i = 0; i < Math.abs(delta); i++) {
-    await page.keyboard.press(key);
-  }
-  await expect(dialog.getByText(`${fillFactor} / 10`)).toBeVisible();
+  await dialog.getByLabel(/grams per unit/i).fill(String(grams));
 
   await dialog.getByRole("button", { name: "Add to library" }).click();
   await expect(dialog).toBeHidden();
