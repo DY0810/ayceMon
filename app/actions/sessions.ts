@@ -23,6 +23,10 @@ export interface FinishAndSaveInput {
   restaurantName?: string; // display-only fallback when no Google Place is resolved
   buffetPrice: number;
   appetiteBudget: number;
+  // Phase 1 (collab-and-quantitative-appetite): grams-based budget.
+  // `null` = user opted out of a budget; `undefined` = legacy pre-grams
+  // client that hasn't started sending the field yet.
+  appetiteBudgetGrams?: number | null;
   library: Item[];
   eaten: EatenEntry[];
   startedAt: string; // ISO 8601
@@ -71,13 +75,35 @@ export async function finishAndSaveSession(
     return { ok: false, error: "invalid_input" };
   }
 
+  // Phase 1: appetiteBudgetGrams is optional; when present it must be null
+  // or a finite number matching the DB CHECK (50–10000). Mirrors the range
+  // in supabase/migrations/0004_quantitative_appetite.sql.
+  if (
+    input.appetiteBudgetGrams !== undefined &&
+    input.appetiteBudgetGrams !== null &&
+    (typeof input.appetiteBudgetGrams !== "number" ||
+      !Number.isFinite(input.appetiteBudgetGrams) ||
+      input.appetiteBudgetGrams < 50 ||
+      input.appetiteBudgetGrams > 10000)
+  ) {
+    return { ok: false, error: "invalid_input" };
+  }
+
   // Per-element validation — a server action is a public endpoint.
   for (const item of input.library) {
     if (
       typeof item?.id !== "string" || item.id.length > 100 ||
       typeof item?.name !== "string" || item.name.length > 200 ||
       typeof item?.alaCarteValue !== "number" || !Number.isFinite(item.alaCarteValue) || item.alaCarteValue < 0 ||
-      typeof item?.fillFactor !== "number" || !Number.isFinite(item.fillFactor) || item.fillFactor < 0
+      typeof item?.fillFactor !== "number" || !Number.isFinite(item.fillFactor) || item.fillFactor < 0 ||
+      // Phase 1: gramsPerUnit is optional. When present it must be a
+      // finite, non-negative number, and not larger than the session
+      // budget ceiling (10000g, mirrors the DB CHECK range).
+      (item.gramsPerUnit !== undefined &&
+        (typeof item.gramsPerUnit !== "number" ||
+          !Number.isFinite(item.gramsPerUnit) ||
+          item.gramsPerUnit < 0 ||
+          item.gramsPerUnit > 10000))
     ) {
       return { ok: false, error: "invalid_input" };
     }
@@ -85,7 +111,16 @@ export async function finishAndSaveSession(
   for (const entry of input.eaten) {
     if (
       typeof entry?.itemId !== "string" || entry.itemId.length > 100 ||
-      typeof entry?.units !== "number" || !Number.isFinite(entry.units) || entry.units < 0
+      typeof entry?.units !== "number" || !Number.isFinite(entry.units) || entry.units < 0 ||
+      // Phase 1: per-entry grams override is optional. When present it
+      // must be a finite, non-negative number bounded by the session
+      // budget ceiling (10000g) to mirror the DB CHECK range and block
+      // garbage-sized payloads.
+      (entry.grams !== undefined &&
+        (typeof entry.grams !== "number" ||
+          !Number.isFinite(entry.grams) ||
+          entry.grams < 0 ||
+          entry.grams > 10000))
     ) {
       return { ok: false, error: "invalid_input" };
     }
@@ -161,6 +196,9 @@ export async function finishAndSaveSession(
     client_session_id: input.clientSessionId,
     buffet_price: input.buffetPrice,
     appetite_budget: input.appetiteBudget,
+    // Phase 1: nullable grams-based budget. `undefined` from legacy
+    // clients lands as null (DB column is nullable by design).
+    appetite_budget_grams: input.appetiteBudgetGrams ?? null,
     // supabase-js serialises these jsonb columns automatically — do NOT
     // JSON.stringify (Appendix B, Phase 3 anti-pattern list).
     library: input.library as unknown as Database["public"]["Tables"]["session_records"]["Insert"]["library"],
