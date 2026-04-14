@@ -6,8 +6,11 @@ import { useRouter } from "next/navigation";
 import { finishAndSaveSession } from "@/app/actions/sessions";
 import {
   finalizeSharedSession,
+  listCollaboratorNames,
   logSharedEaten,
+  type CollaboratorName,
 } from "@/app/actions/shared-session";
+import { ShareDrawer } from "@/components/share-drawer";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { computeFullness, margin, totalEatenValue } from "@/lib/calc";
-import { formatGrams } from "@/lib/format";
+import { formatGrams, shortUserId } from "@/lib/format";
 import { selectLogEatenTarget } from "@/lib/log-eaten";
 import { useAyceStore } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
@@ -102,6 +105,42 @@ export default function TrackerPage() {
   }, []);
   const [finishPending, setFinishPending] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+
+  // Phase 7 — Share drawer + collaborator name cache. We fetch display
+  // names via listCollaboratorNames (backed by a SECURITY DEFINER RPC
+  // gated on session membership). The collaborator *list* already comes
+  // from the polled `useSharedSession` hook — we only call the RPC to
+  // resolve user_id → email-prefix. Refetched whenever the collaborator
+  // roster changes so newly-joined members surface their name in the
+  // "Eating with" row and in the Share drawer.
+  const [shareOpen, setShareOpen] = useState(false);
+  const [collaboratorNames, setCollaboratorNames] = useState<CollaboratorName[]>(
+    [],
+  );
+  // `collaboratorIdsKey` is a sorted, comma-joined string of user_ids;
+  // it changes iff the set changes, which is exactly when the effect
+  // needs to refire. Length is encoded by the key (a shorter/longer
+  // string), so we don't list it separately.
+  const collaboratorIdsKey = shared.collaborators
+    .map((c) => c.user_id)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    // No refetch in solo mode. The collaborator-list row is also gated
+    // on `sharedSessionId`, so stale names from a prior shared session
+    // are invisible anyway.
+    if (!sharedSessionId) return;
+    if (collaboratorIdsKey.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const result = await listCollaboratorNames(sharedSessionId);
+      if (cancelled) return;
+      if (result.ok) setCollaboratorNames(result.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sharedSessionId, collaboratorIdsKey]);
 
   // Redirect guard: no session → /setup. Wait for hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
@@ -271,6 +310,31 @@ export default function TrackerPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 lg:px-8 lg:grid lg:grid-cols-3 lg:gap-10">
+      {sharedSessionId ? (
+        <section
+          aria-label="Collaborators"
+          className="-mx-4 flex items-center justify-between gap-3 border-b border-[rgba(25,28,31,0.08)] bg-white px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4 dark:border-white/10 dark:bg-[#191c1f]"
+        >
+          <p className="min-w-0 truncate text-[#191c1f] dark:text-white">
+            <span className="text-[#505a63] dark:text-[#8d969e]">
+              Eating with:
+            </span>{" "}
+            {renderCollaboratorRoster(
+              shared.collaborators,
+              collaboratorNames,
+              authUser ? authUser.id : null,
+            )}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShareOpen(true)}
+          >
+            Share
+          </Button>
+        </section>
+      ) : null}
       <section
         aria-label="Live totals"
         aria-live="polite"
@@ -438,12 +502,62 @@ export default function TrackerPage() {
           </div>
         ) : null}
       </div>
+      {sharedSessionId ? (
+        <ShareDrawer
+          sharedSessionId={sharedSessionId}
+          collaborators={shared.collaborators.map((c) => ({
+            userId: c.user_id,
+            role: c.role,
+          }))}
+          currentUserId={authUser ? authUser.id : null}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+        />
+      ) : null}
     </main>
   );
 }
 
 function formatUnits(units: number): string {
   return Number.isInteger(units) ? units.toString() : units.toFixed(1);
+}
+
+// Phase 7: render "Eating with: Alice, Bob, You". Own user is bolded
+// and pushed last; everyone else is alphabetized by display name so the
+// order is stable across polls.
+function renderCollaboratorRoster(
+  collaborators: ReadonlyArray<{ user_id: string; role: string }>,
+  names: ReadonlyArray<CollaboratorName>,
+  selfUserId: string | null,
+): React.ReactNode {
+  if (collaborators.length === 0) return null;
+  const byId = new Map(names.map((n) => [n.userId, n.displayName]));
+
+  const others = collaborators
+    .filter((c) => c.user_id !== selfUserId)
+    .map((c) => byId.get(c.user_id) ?? shortUserId(c.user_id))
+    .sort((a, b) => a.localeCompare(b));
+
+  const selfInSession =
+    selfUserId !== null &&
+    collaborators.some((c) => c.user_id === selfUserId);
+
+  const parts: React.ReactNode[] = others.map((name, i) => (
+    <span key={`other-${i}`}>{name}</span>
+  ));
+  if (selfInSession) {
+    parts.push(
+      <strong key="you" className="font-semibold">
+        You
+      </strong>,
+    );
+  }
+
+  return parts.reduce<React.ReactNode[]>((acc, part, i) => {
+    if (i > 0) acc.push(<span key={`sep-${i}`}>, </span>);
+    acc.push(part);
+    return acc;
+  }, []);
 }
 
 interface ItemCardProps {
