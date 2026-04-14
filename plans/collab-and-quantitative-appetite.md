@@ -2,8 +2,31 @@
 
 > **Objective:** (1) Let a session owner invite friends, and let those friends log what *they* ate against the shared session. (2) Replace the arbitrary 1–10 fill-factor slider and 1–100 appetite-budget with a **grams-based, research-backed** quantitative model. (3) Let foods be logged by **grams** in addition to units. (4) Block `/result` while the session is still active. (5) Delete the `/import` page now that `session_records.restaurant_id` is nullable (migration `0003`).
 
-**Generated:** 2026-04-13 · **Mode:** branch-per-phase with GitHub PRs (repo is `github.com/DY0810/ayceMon`, current branch `docs/docker-k8s`, main is `main`)
+**Generated:** 2026-04-13 · **Revised:** 2026-04-14 · **Mode:** branch-per-phase with GitHub PRs (repo is `github.com/DY0810/ayceMon`, current branch `docs/docker-k8s`, main is `main`)
 **Base branch:** `main` — every phase branches off `main`, opens a PR, merges before the next dependent phase starts.
+
+---
+
+## Current state as of 2026-04-14 (READ FIRST if you weren't here yesterday)
+
+**Merged to `main`:**
+- Phase 0 — PR #4 (design doc)
+- Phase 1 — PR #6 (quantitative types + migration `0004`)
+- Phase 2 — PR #9 (setup presets + grams-per-unit library input + seed catalog gramsPerUnit)
+- Phase 5 — PR #7 (`/import` removed, migrate.ts drops `no_place` branch)
+
+**In review, not merged:**
+- Phase 6 — PR #10 on branch `feat/phase-6-shared-sessions`. Contains: migration `0005_shared_sessions.sql`, `app/actions/shared-session.ts` (create/update/addItem/logEaten/finalize), `app/api/shared-session/[id]/route.ts` polling endpoint, `lib/use-shared-session.ts` polling hook, setup-page "Invite friends" toggle, tracker/library branching on `sharedSessionId`, finalize unit tests. Reviewer findings already addressed in commit `17a341f`. **Assume this merges before Phase 3/4 work starts** — every remaining phase in this plan builds on that assumption.
+
+**Remaining work (phases 3, 4, 7, 8):** see revised dependency table below. Phase 3 and Phase 4 are now unblocked the moment Phase 6 merges — they parallelize. Phase 7 still serializes after Phase 3. Phase 8 last.
+
+**Order of operations implication for remaining phases:**
+1. Land PR #10 (Phase 6). Rebase `main`.
+2. Branch **Phase 3** and **Phase 4** from `main` in parallel. Merge whichever is ready first.
+3. Branch **Phase 7** from `main` after Phase 3 merges (tracker + result overlap).
+4. Branch **Phase 8** from `main` last.
+
+**Why this matters for any agent executing cold:** Phase 6's code already exists on the `feat/phase-6-shared-sessions` branch. The schema has `appetite_budget_grams`, `grams_per_unit`, `grams` columns; `app/actions/shared-session.ts` already branches on solo/shared and accepts grams; `lib/use-shared-session.ts` polls. **Do not retrofit** any of this. Remaining phases consume it.
 
 ---
 
@@ -19,17 +42,19 @@
 
 **Phases, dependency graph, parallelism:**
 
-| # | Phase | Depends on | Parallelizable? | Model tier |
-|---|---|---|---|---|
-| 0 | Research + design doc for grams-based appetite model | — | no | strongest |
-| 1 | Quantitative types + Supabase migration `0004_quantitative_appetite.sql` | 0 | no | strongest |
-| 2 | Setup + Library UI: grams-per-unit, mass budget presets | 1 | **‖ with 6** | default |
-| 3 | Tracker + Result quant display + "+grams" log button | 2 | no | default |
-| 5 | Remove `/import` page + `finishedSessions` flow | — | **‖ with 2, 3, 6** | default |
-| 4 | Gate `/result` on `finishedAt` (redirect guard + nav rule) | 5 | no (owns `nav.tsx` after 5) | default |
-| 6 | Shared-session schema (`0005_shared_sessions.sql`) + server-persisted active sessions | 1, 2 | **‖ with 5** | strongest |
-| 7 | Invite / join flow (`0006_session_invites.sql`) + per-user eaten attribution | 6 | no | strongest |
-| 8 | Verification: e2e, unit tests, lint / build gates | 3, 4, 5, 7 | no | default |
+| # | Phase | Depends on | Parallelizable? | Model tier | Status (2026-04-14) |
+|---|---|---|---|---|---|
+| 0 | Research + design doc for grams-based appetite model | — | no | strongest | **DONE** (PR #4) |
+| 1 | Quantitative types + Supabase migration `0004_quantitative_appetite.sql` | 0 | no | strongest | **DONE** (PR #6) |
+| 2 | Setup + Library UI: grams-per-unit, mass budget presets | 1 | **‖ with 6** | default | **DONE** (PR #9) |
+| 5 | Remove `/import` page + `finishedSessions` flow | — | **‖ with 2, 3, 6** | default | **DONE** (PR #7) |
+| 6 | Shared-session schema (`0005_shared_sessions.sql`) + server-persisted active sessions + dual-path in tracker/library | 1, 2 | **‖ with 5** | strongest | **IN REVIEW** (PR #10) |
+| 3 | Tracker + Result quantitative display + "+grams" log button **(dual-path: solo Zustand vs shared server-action)** | 2, 6 | **‖ with 4** after 6 merges | default | **TODO** |
+| 4 | Gate `/result` on `finishedAt` (redirect guard + nav widening) | 5, 6 | **‖ with 3** after 6 merges | default | **TODO** |
+| 7 | Invite / join flow (`0006_session_invites.sql`) + per-user eaten attribution | 6, 3 | no — serializes after 3 (tracker/result overlap) | strongest | **TODO** |
+| 8 | Verification: e2e, unit tests, lint / build gates | 3, 4, 5, 6, 7 | no | default | **TODO** |
+
+**Revised parallelism (2026-04-14):** Phase 6 was completed end-to-end in a single branch (schema + server actions + tracker/library dual-path + polling endpoint + finalize tests). That means Phase 3 and Phase 4 both gain a new upstream dependency on Phase 6 — but gain *each other* as peers: the moment PR #10 merges, Phase 3 and Phase 4 can ship in parallel (they touch disjoint files: Phase 3 owns `tracker`/`result`/`calc`; Phase 4 owns `result` redirect guard + `nav.tsx`). Phase 7 still must wait for Phase 3 because both touch the tracker + result pages.
 
 **Migration-number contract (reviewer-flagged C2):** `0004` → Phase 1, `0005` → Phase 6, `0006` → Phase 7. No other phase may reserve a migration slot. If CI detects a collision (two open PRs both adding `000N_*.sql`), the second PR must rebase and renumber.
 
@@ -143,6 +168,8 @@ After every phase, the review sub-agent must verify these still hold. These are 
 13. The grams-based budget is a *target*, not a *hard cap*. Never show error states when the user exceeds it — the UI just shows 100%+ full.
 14. Never trust client-supplied `user_id` on shared-session writes. Derive from `auth.uid()` server-side.
 15. Invite tokens are single-use-ish: the default is revocable + 24h expiry, and the token is an opaque DB key, not a JWT with session data encoded in it.
+16. **Dual-path invariant (added 2026-04-14):** Every mutation site in the UI (log eaten, add library item, update session) MUST branch on `sharedSessionId`. When `sharedSessionId` is set, call the matching `app/actions/shared-session.ts` server action (`logSharedEaten`, `addSharedLibraryItem`, `updateSharedSession`). Otherwise call the local Zustand method (`logEaten`, `addItemToLibrary`, `updateSession`). No mutation may silently skip this branch — that's what produces the "log ate 200g but nothing happened" bug when the user is in a shared session. Read path follows the same rule: when `sharedSessionId` is set, reads come from the polled `useSharedSession(id)` hook; otherwise from the Zustand store selector.
+17. **Single display component invariant (added 2026-04-14):** tracker, library, and result each render *one* JSX component that takes the resolved session shape (solo or shared, normalized by the hook). Do **not** fork into `tracker-solo.tsx` / `tracker-shared.tsx`. This was held in Phase 6 — a grep for `sharedSessionId|SharedSession` in `components/` must return zero matches after every phase, **with one intentional carve-out added by Phase 7**: `components/share-drawer.tsx` references `sharedSessionId` because it *only* renders inside the shared branch (it is a shared-only UI affordance, not a display fork of the tracker). The invariant becomes: zero matches in `components/` except inside files whose *entire purpose* is the shared-session affordance — such files must be named with a `share-*` or `shared-*` prefix to make the carve-out auditable via `grep --exclude "components/share*"`.
 
 ---
 
@@ -303,58 +330,101 @@ Today `app/setup/page.tsx` has an `appetiteBudget` number input (1–100). `app/
 
 ---
 
-# Phase 3 — Tracker + Result quantitative display + `+grams` log button
+# Phase 3 — Tracker + Result quantitative display + `+grams` log button (dual-path)
 
-**Model tier:** default · **Parallelizable:** yes (with 4, 5) · **Rollback:** revert commit.
+**Model tier:** default · **Parallelizable:** yes with Phase 4 (disjoint files) once Phase 6 merges · **Rollback:** revert commit.
 
-## Context brief
+## Context brief (cold start, revised 2026-04-14)
 
-Today `app/tracker/page.tsx` displays `Fill: formatUnits(unitsConsumed) / appetiteBudget` where `unitsConsumed = sum(entry.units * item.fillFactor)`. Replace with grams-based: `formatGrams(gramsConsumed) / appetiteBudgetGrams` where `gramsConsumed = computeFullness(...)`. When `appetiteBudgetGrams === null`, show grams consumed with no denominator.
+Phase 6 (PR #10) already introduced the dual-path skeleton in `app/tracker/page.tsx` and `app/library/page.tsx`: both pages check `sharedSessionId` (from the Zustand store) and, when set, read from `useSharedSession(id)` and write through `app/actions/shared-session.ts`. Solo-mode reads from Zustand and writes `store.logEaten(...)`.
 
-The tracker's per-item card has `−1 / +0.5 / +1` buttons. Add a fourth inline control: a tiny inline input (or popover) that accepts grams and calls `logEaten(itemId, 0, grams)` — `units: 0, grams: N` lands an EatenEntry with the direct override.
+What Phase 6 *did not* do:
 
-`app/result/page.tsx` shows totals and a breakdown table. Append a column for "Grams" next to "Units", and a "Fullness" summary row next to "Margin".
+- It did not add the quantitative **grams display** (the tracker still shows the old `Fill: unitsConsumed / appetiteBudget` UI).
+- It did not add the **`+g` inline grams input**.
+- It did not update `app/result/page.tsx` at all (still shows units-only breakdown, no grams column, no fullness row).
+
+This phase lands both: the display change + the new `+g` button. Every mutation and every read must respect the dual-path invariant (Appendix B #16).
+
+### Pre-flight sanity checks (run before the first edit)
+
+```
+grep -rn "sharedSessionId" app/tracker app/library app/result lib components | head -40
+grep -rn "useSharedSession" lib app | head -20
+grep -rn "logSharedEaten\|addSharedLibraryItem" app | head -20
+ls app/api/shared-session/\[id\]/route.ts lib/use-shared-session.ts app/actions/shared-session.ts
+```
+
+If any of those files are missing, **stop** — PR #10 has not merged yet. Do not start Phase 3.
+
+If `components/` has any matches for `sharedSessionId` or `SharedSession*`, the single-display-component invariant (Appendix B #17) has been broken — halt and escalate.
 
 ## Files to touch
 
-- `app/tracker/page.tsx`
-- `app/result/page.tsx`
-- `lib/calc.ts` (if any helper missing from Phase 1)
+- `app/tracker/page.tsx` — swap Fill → grams display; add `+g` button per item; branch writes on `sharedSessionId`.
+- `app/result/page.tsx` — add grams column + fullness summary row; does not need dual-path writes (read-only), but the read path must already correctly resolve the finalized session (Phase 6's `finalizeSharedSession` aggregates `shared_session_entries` → `session_records` jsonb with `grams` preserved — rely on that, don't recompute).
+- `lib/calc.ts` — only edit if `computeFullness` is missing a branch; Phase 1 already added it. Do NOT fork it.
+- `lib/store.ts` — **no change needed**; `logEaten(itemId, units, gramsOverride?)` was added in Phase 1.
+- `app/actions/shared-session.ts` — **no change needed**; `logSharedEaten(sessionId, itemId, units, grams?)` was added in Phase 6. Verify with `grep "logSharedEaten" app/actions/shared-session.ts`.
 
 ## Tasks
 
-1. Replace the `Fill: X / Y` dt/dd in tracker (both mobile + desktop) with grams.
-2. Add a `+g` button per item card that opens a tiny inline popover with a number input + Add button. Submit calls `logEaten(item.id, 0, N)`. **Use shadcn/ui** primitives (the repo already ships `components/ui/{dialog,input,button}.tsx`) — do not introduce a Base UI popover component (reviewer-flagged m1). If shadcn's `Popover` isn't yet present, use a `Dialog` triggered from the button, or an inline expand-on-focus `<div>` controlled by local state. The goal is friction-free grams entry, not a new dep.
-3. Add a `formatGrams(n)` helper alongside `formatUnits` in the same file (keep the helper local unless it's reused > 2 times).
-4. In `result/page.tsx` compute `gramsConsumed` via `computeFullness` and render a new summary line "Fullness: {formatGrams(grams)} {budget ? `of ${formatGrams(budget)}` : ''}".
-5. Append a "Grams" column to the breakdown table. Show entry.grams when set; else `entry.units * item.gramsPerUnit`; else `—`.
+1. **Replace the Fill dt/dd in tracker (mobile + desktop).** Compute `gramsConsumed` via `computeFullness(library, eaten, budgetGrams)` from `lib/calc.ts`. Render `formatGrams(gramsConsumed)` and, when `appetiteBudgetGrams != null`, ` / formatGrams(appetiteBudgetGrams)`. When null, show the number alone. Keep the progress bar; drive it off `gramsConsumed / appetiteBudgetGrams` (clamped to [0,1] for the bar width; the numeric label can exceed 100%).
+2. **Add a `+g` button per item card.** The visual pattern matches the existing `−1 / +0.5 / +1` row. Tapping it reveals an inline controlled input (a local `useState` on the item card is fine; do not mount a Dialog — the shadcn Popover is not in `components/ui/` yet and adding it is out of scope). Submitting calls the dual-path mutation:
+
+   ```ts
+   // pseudocode inside the item card
+   if (sharedSessionId) {
+     await logSharedEaten(sharedSessionId, item.id, 0, grams);
+   } else {
+     logEaten(item.id, 0, grams);
+   }
+   ```
+
+   The `units: 0, grams: N` shape is contractually supported — Phase 1's `EatenEntry` allows `grams` independently of `units`, and Phase 6's `logSharedEaten` accepts the same.
+3. **Focus management:** after a successful `+g` submit, close the inline input and refocus the `+g` button on the same card. `useRef<HTMLButtonElement>` inside the card; call `.focus()` in a microtask after the state collapses. Do NOT `useEffect` with a timeout — that ships a race condition.
+4. **Add `formatGrams(n)` helper** in `app/tracker/page.tsx` alongside `formatUnits`. Keep it local; if `app/result/page.tsx` needs the same, duplicate — it's 5 lines. Only extract to `lib/format.ts` if a third site needs it.
+5. **Result page fullness summary.** Inside `app/result/page.tsx`, after the totals card, render "Fullness: {formatGrams(gramsConsumed)}{budget ? ` of ${formatGrams(budget)}` : ''}". Reuse `computeFullness`. For a finalized shared session, `library` and `eaten` are already the flattened jsonb on `session_records` (per Phase 6 `finalizeSharedSession`). The result page does not need to branch on `sharedSessionId`; it renders whatever the session payload contains.
+6. **Result breakdown table — grams column.** Append a column after "Units". Value: `entry.grams` when set; else `entry.units * item.gramsPerUnit` when the item has it; else `—`. Never render `0g` when the grams source is undefined — that's a silent data-loss signal.
+7. **Do not touch `components/nav.tsx`** — Phase 4 owns it.
+8. **Do not widen `NavVisibility`** — Phase 4 owns that too.
 
 ## Verification
 
-- Tracker on mobile + desktop: grams counter updates on every button tap.
-- "+g" popover commits without refreshing the page and focuses the next button afterwards (a11y: `useRef` focus management).
-- Result breakdown table renders the grams column for all entry types.
-- `npm test` green.
+- Dual-path grep (copy/paste): `grep -n "logEaten\|logSharedEaten" app/tracker/page.tsx` must show both, each inside a branch on `sharedSessionId`.
+- `grep -n "sharedSessionId" components/` must still return zero lines (invariant #17).
+- Solo smoke: start a guest session, set budget 1200g, add a library item (150g/unit), go to tracker, tap `+g` → 200. Progress bar updates.
+- Shared smoke: sign in, create session with "Invite friends" mode, land on tracker (`sharedSessionId` now set). Tap `+g` → 200. Poll hook should reflect the entry on next refresh (≤3s).
+- Result page: finalize both flows, verify grams column populated; fullness row renders with denominator when budget set, without when `null`.
+- `npm run lint && npm test && npx playwright test e2e/tracker*.spec.ts` all green.
 
 ## Exit criteria
 
-- PR merged, both /tracker and /result validated manually.
+- PR merged. Both solo + shared smoke flows recorded in PR body (screenshot or 10-line description).
+- No regression in existing `e2e/` suite.
 
 ## Anti-patterns
 
-- Don't recompute `gramsConsumed` inline; call `computeFullness` from calc.ts.
+- Don't recompute `gramsConsumed` inline; call `computeFullness` from `lib/calc.ts`.
 - Don't remove the `−1 / +0.5 / +1` buttons — users still want the quick-tap flow.
 - Don't show "0g" when grams is unknown; show `—`.
+- Don't write a new mutation path that skips the `sharedSessionId` branch (Appendix B #16).
+- Don't fork the tracker into `tracker-solo.tsx` / `tracker-shared.tsx` (Appendix B #17).
+- Don't add a shadcn Popover component just for the `+g` input. Inline state is fine.
 
 ---
 
-# Phase 4 — Gate `/result` on `finishedAt`
+# Phase 4 — Gate `/result` on `finishedAt` + widen NavVisibility
 
-**Model tier:** default · **Parallelizable:** no — owns `components/nav.tsx` for its merge window. Phase 5 must merge to `main` first (reviewer-flagged C3) so the `/import` nav removal doesn't conflict. · **Rollback:** revert commit.
+**Model tier:** default · **Parallelizable:** yes with Phase 3 (disjoint files: Phase 3 owns `tracker`/`result` body; Phase 4 owns `result` redirect guard + `nav.tsx`) · **Rollback:** revert commit.
 
-## Context brief
+## Context brief (cold start, revised 2026-04-14)
 
-Today `/result` renders the current session whether or not `session.finishedAt` is set. That's the "peek at the answer mid-meal" bug the user reported. Nav also exposes a `/result` link whenever `sessionActive || signedIn`.
+Phase 5 merged (PR #7) — `/import` is gone, `components/nav.tsx` no longer has the `/import` `<li>`. That unblocks this phase: editing `nav.tsx` is now safe.
+
+Phase 6 (PR #10) introduced `sharedSessionId` on the Zustand store and a polled `useSharedSession` hook. For shared sessions, "finished" means `sharedSession.finishedAt != null` (from the polled payload). For solo sessions, it means `session.finishedAt != null` (from Zustand). The redirect guard and the nav visibility rule must handle both.
+
+Today (after Phases 2+5+6) `/result` still renders whether or not the session is finished. That's the "peek at the answer mid-meal" bug.
 
 ## Files to touch
 
@@ -363,23 +433,47 @@ Today `/result` renders the current session whether or not `session.finishedAt` 
 
 ## Tasks
 
-1. In `result/page.tsx`, after the `hasHydrated` guard, if `session !== null && !session.finishedAt`, `router.replace('/tracker')` and return null.
-2. Add a second redirect for the edge case `session === null` (already present) — no change, just document.
-3. In `components/nav.tsx`, widen the `NavVisibility` union:
+1. **Redirect guard in `app/result/page.tsx`.** After the `hasHydrated` guard (the existing `session === null` check is preserved), add:
+   ```ts
+   // Solo path: Zustand session in progress
+   if (session !== null && !session.finishedAt) {
+     router.replace("/tracker");
+     return null;
+   }
+   // Shared path: owner or collaborator viewing a shared session that hasn't finalized
+   if (sharedSessionId && sharedSession && !sharedSession.finishedAt) {
+     router.replace("/tracker");
+     return null;
+   }
+   ```
+   Source the shared session from `useSharedSession(sharedSessionId)` (Phase 6 hook). Guard against the polling hook's loading state — redirect should only fire when we have a confirmed `finishedAt === null`, not during the first render before data arrives. Use `if (sharedSession === undefined) return null;` as a loading gate ahead of the redirect.
+2. Document (don't change) the existing `session === null` branch — it already redirects to `/setup`.
+3. **Widen `NavVisibility`** in `components/nav.tsx`:
    ```ts
    type NavVisibility = "always" | "in-session" | "authed" | "session-finished";
    ```
-   Add the new branch to the `isVisible` switch. Assign it to the `/result` item.
-   **Truth table** (reviewer-flagged C1) — `/result` must be visible when any of these is true:
-   - `sessionActive && session.finishedAt !== undefined` (draft finished, pre-end-session)
-   - `signedIn` with a fresh-ish finished record — *but this doesn't need a nav link*; `/history/[id]` already covers that viewing flow. The link is intentionally hidden for `signedIn && !sessionActive`.
-   The four-state resolution: (guest, no-session) hidden; (guest, in-progress) hidden; (guest-or-signed-in, finished-draft) visible; (signed-in, no-session) hidden — use `/history` instead.
-4. Add a Playwright test: start session → navigate to /result → expect URL to become `/tracker`. Finish session → navigate to /result → expect URL stays on /result.
+   Add the new case to the `isVisible` switch. Assign `"session-finished"` to the `/result` nav item.
+   **Truth table (reviewer-flagged C1) — `/result` visible iff any of:**
+   - Solo: `session != null && session.finishedAt != null` (finished-draft, pre-save)
+   - Shared: `sharedSessionId != null && sharedSession?.finishedAt != null`
+   Four-state resolution for the link:
+   - (guest, no session) → hidden
+   - (guest or shared-collaborator, in-progress) → hidden
+   - (guest or shared, finished draft) → visible
+   - (signed-in, no active session, finished record in DB) → hidden; `/history/[id]` covers that view.
+   The nav reads `sharedSessionId` + `sharedSession.finishedAt` via `useSharedSession` — or (preferred to avoid a second poll in the nav) adds a narrow boolean `finished` to the Zustand mirror `sharedSession` field that the tracker already polls and updates. Choose whichever avoids duplicating the polling hook at the nav level.
+4. **Playwright test** `e2e/result-gate.spec.ts` covering four cases:
+   - Solo in-progress → `/result` redirects to `/tracker`.
+   - Solo finished → `/result` stays on `/result`.
+   - Shared in-progress (owner) → `/result` redirects to `/tracker`.
+   - Shared finished (after `finalizeSharedSession`) → `/result` stays on `/result`.
 
 ## Verification
 
-- Manual: hit `/result` with an in-progress session, land on `/tracker`. Finish meal, hit `/result`, land on `/result`.
-- Playwright test added under `e2e/result-gate.spec.ts` and passes.
+- Manual solo: hit `/result` mid-meal, land on `/tracker`. Finish meal, hit `/result`, land on `/result`.
+- Manual shared: invite-mode session, hit `/result` mid-meal, land on `/tracker`. Finalize, hit `/result`, see results.
+- `grep -n "NavVisibility" components/nav.tsx` shows the widened union.
+- `e2e/result-gate.spec.ts` passes all four cases.
 
 ## Exit criteria
 
@@ -389,6 +483,9 @@ Today `/result` renders the current session whether or not `session.finishedAt` 
 
 - Don't use `useEffect` with a setState for the redirect — call `router.replace` directly inside the existing hook that guards `session === null`.
 - Don't change the `/setup` redirect behaviour. The new gate only adds the `finishedAt` check.
+- Don't redirect on the shared-session loading state (`sharedSession === undefined`). Wait for data.
+- Don't mount the `useSharedSession` polling hook in `nav.tsx` — it renders on every route and will thrash the poller. Derive `finished` from the already-polling tracker's store slice if possible, or accept a small debounce.
+- Don't leave the `NavVisibility` switch without a default case — TypeScript's exhaustiveness check is a real guard here (Appendix B #6 `no-explicit-any` friendly).
 
 ---
 
@@ -520,11 +617,17 @@ Migration `0005` also adds `contributors jsonb` to `session_records` (default `'
 
 # Phase 7 — Invite / join flow + per-user eaten attribution
 
-**Model tier:** strongest · **Parallelizable:** no (depends on 6) · **Rollback:** revert commit; drop `session_invites` table via follow-up migration.
+**Model tier:** strongest · **Parallelizable:** no — depends on Phase 6 (merged) AND Phase 3 (tracker + result overlap: this phase adds the collaborator list to `app/tracker/page.tsx` and regroups `app/result/page.tsx` by user) · **Rollback:** revert commit; drop `session_invites` table via follow-up migration.
 
-## Context brief
+## Context brief (cold start, revised 2026-04-14)
 
-Owner opens a "Share" drawer from the Tracker; backend mints a random 128-bit token in a new `session_invites` table. Sharing URL: `/join?token=xxx`. Invitee:
+Phase 6 (PR #10) already built the shared-session substrate: `shared_sessions`, `shared_session_collaborators`, `shared_session_entries` tables; `app/actions/shared-session.ts` for create/update/addItem/logEaten/finalize; `lib/use-shared-session.ts` polling hook; `app/api/shared-session/[id]/route.ts` GET endpoint; tracker/library dual-path. **Migration `0005` already includes `grams`, `grams_per_unit`, `appetite_budget_grams` columns** — the grams work was unified with Phase 6.
+
+Phase 3 (the prior phase in order) added the `+g` button + grams display in tracker/result.
+
+This phase adds **only the invite layer**: owner mints a token, invitee accepts via `/join?token=...`, collaborator row is written, UI updates to show "Eating with: Alice, Bob, You".
+
+Sharing URL: `/join?token=xxx`. Invitee:
 
 1. Hits `/join?token=xxx` (client component; reads `useSearchParams()` under `<Suspense>`).
 2. If unauth → redirect to `/login?next=/join?token=xxx`.
@@ -536,34 +639,53 @@ Tracker UI changes:
 - Per-item card's +1/+0.5/+g buttons still log against the current user.
 - Breakdown table on `/result` groups rows by collaborator name with a sub-total per user.
 
+### Pre-flight sanity checks
+
+```
+ls app/actions/shared-session.ts lib/use-shared-session.ts app/api/shared-session/\[id\]/route.ts
+grep -n "finalizeSharedSession\|logSharedEaten\|createSharedSession" app/actions/shared-session.ts
+grep -rn "sharedSessionId" components/  # must be empty (invariant #17)
+```
+
+If those fail, Phase 6 has not landed; halt.
+
 ## Files to touch
 
-- `supabase/migrations/0006_session_invites.sql` (NEW) — `session_invites (id uuid pk, session_id fk, token text unique, expires_at timestamptz, created_by uuid fk → auth.users, used_at timestamptz nullable, created_at timestamptz default now())` + RLS owner-only.
-- `app/actions/shared-session.ts` — add `createInvite(sessionId)` and `joinSharedSession(token)`.
-- `app/join/page.tsx` (NEW) — **server component** that renders a `<Suspense fallback={...}>` wrapping `<JoinClient />`. This is the correct Next 16 pattern (reviewer-flagged M4): a single client component at the page default export does NOT satisfy the Suspense boundary requirement; the wrapping must be *outside* the `useSearchParams` caller. Mirror the existing `app/import/page.tsx` + `import-client.tsx` split.
+- `supabase/migrations/0006_session_invites.sql` (NEW) — `session_invites (id uuid pk, session_id fk → shared_sessions(id) on delete cascade, token text unique, expires_at timestamptz, created_by uuid fk → auth.users, used_at timestamptz nullable, created_at timestamptz default now())` + RLS owner-only read/write. The `contributors jsonb` column on `session_records` was added in Phase 6's `0005` (verify: `grep contributors supabase/migrations/0005_shared_sessions.sql`); do **not** re-add it here.
+- `app/actions/shared-session.ts` — **append** `createInvite(sessionId)`, `joinSharedSession(token)`, `revokeInvite(inviteId)`. Do not touch the existing create/update/addItem/logEaten/finalize actions — they are already review-approved.
+- `app/join/page.tsx` (NEW) — **server component** that renders `<Suspense fallback={...}><JoinClient /></Suspense>`. This is the correct Next 16 pattern (reviewer-flagged M4): the `useSearchParams`-caller must be *inside* the Suspense boundary. The `/import` split was removed in Phase 5 so there is no longer a local example to mirror; follow the Suspense-wrapping pattern described in `node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md` (cite the exact section in PR body).
 - `app/join/join-client.tsx` (NEW) — client component that calls `useSearchParams()` and handles the token exchange.
-- `app/tracker/page.tsx` — add Share drawer + collaborator list.
-- `app/result/page.tsx` — group rows by collaborator; compute per-user subtotals client-side from the `contributors` jsonb.
-- `components/share-drawer.tsx` (NEW) — renders invite link, copy-to-clipboard button, revoke button.
-- `lib/invite.ts` (NEW) — `generateInviteToken(): string` (128-bit, base64url).
+- `app/tracker/page.tsx` — add Share drawer entrypoint + collaborator list. Collaborator list row sits above the sticky progress bar and only renders when `sharedSessionId != null`. **Do not** fork the tracker; add a conditional JSX block controlled by the same `sharedSessionId` branch Phase 3 left in place.
+- `app/result/page.tsx` — group breakdown rows by collaborator. Source of truth: `session_records.contributors` jsonb (populated by `finalizeSharedSession` in Phase 6). For solo sessions, `contributors` is `[]` or absent — fall back to flat rendering from Phase 3.
+- `components/share-drawer.tsx` (NEW) — invite link, copy-to-clipboard, revoke, expiry countdown. Single display component — safe because it only renders inside tracker's shared branch; no dual-path concern at this component.
+- `lib/invite.ts` (NEW) — `generateInviteToken(): string` — 128-bit (16 bytes) from `crypto.randomBytes`, base64url-encoded (22 chars). No Math.random.
 
 ## Tasks
 
-1. Write migration + RLS.
-2. Implement `createInvite` — admin-free, authenticated server client; `auth.uid() = created_by` enforced by RLS.
-3. Implement `joinSharedSession` — validates token not expired, not used, session not finished; inserts collaborator; marks invite used.
-4. Build `/join` page with `<Suspense>`; extract the `?token=` param; call server action; route on success.
-5. Share drawer UI — uses `navigator.clipboard.writeText` and a toast.
-6. Tracker collaborator-list row (top of page, above sticky progress).
-7. Result page: read `contributors` from `shared_session` (or re-derive from entries before finalize), group breakdown rows by user.
-8. Rate-limit `joinSharedSession` by IP (reuse `lib/places/rate-limit.ts` pattern) — 10 joins per IP per hour.
+1. Write migration `0006_session_invites.sql` + RLS (owner-only insert/select; collaborator may select their own invite row only to see "used at" diagnostics; nobody but the owner can `delete`). Verify locally: `supabase db reset`.
+2. Regenerate types: `npx supabase gen types typescript --local > lib/supabase/database.types.ts`; commit the diff. Confirm `session_invites` appears.
+3. Implement `createInvite(sessionId)` — admin-free, authenticated server client. RLS enforces `auth.uid() = created_by`. Returns `{ token, expiresAt }`. Default expiry 24h.
+4. Implement `joinSharedSession(token)` — validates token not expired (`expires_at > now()`), not used (`used_at is null`), session not finalized (`shared_sessions.finished_at is null`). Inserts `shared_session_collaborators(session_id, user_id=auth.uid(), role='collaborator')` via authenticated client. Marks invite `used_at = now()` in the same transaction. Rate limit by IP: 10 joins per IP per hour — reuse the `lib/places/rate-limit.ts` pattern. On success return `{ sessionId }`.
+5. Implement `revokeInvite(inviteId)` — owner-only. Sets `used_at = now()` without assigning a collaborator. (Soft delete; keeps audit trail.)
+6. Build `/join/page.tsx` (server component) + `/join/join-client.tsx` (client). Page wraps `<JoinClient />` in `<Suspense fallback={<JoinLoading />}>`. Client reads `useSearchParams().get("token")`; if unauth, redirect to `/login?next=/join?token=...`; if auth, call `joinSharedSession(token)`. Route outcomes:
+   - Success → `router.replace("/tracker")`, store updates `sharedSessionId` via `setSharedSession(sessionId)`.
+   - `invite_already_used` / `invite_expired` / `session_finalized` → render a banner with "Ask for a fresh link" CTA.
+   - `rate_limited` → banner "Too many joins from this network — try again in an hour".
+7. Share drawer UI (`components/share-drawer.tsx`) — triggered from a button in the tracker header. Shows invite link (`${location.origin}/join?token=...`), a copy button, an "Invited so far" collaborator list, and a "Revoke all active invites" button (calls `revokeInvite` for each). Use `navigator.clipboard.writeText` + a shadcn Sonner/toast (or local ephemeral state) on copy.
+8. Tracker collaborator-list row (top of page, above sticky progress) — only renders when `sharedSessionId != null`. Pulls from the polled `useSharedSession(id)` hook's collaborators array. Renders "Eating with: Alice, Bob, **You**" (own user always bolded + last).
+9. Result page grouping — when `session.contributors?.length > 0`, group `eaten` by user_id and render per-user subheadings with subtotals; otherwise flat (Phase 3 behavior). Per-user subtotal reuses `computeTotals` on that user's slice.
+10. **Do not touch `components/nav.tsx`** — Phase 4 owns nav changes.
+11. **Do not widen any mutation signatures** — `logSharedEaten`/`addSharedLibraryItem` already ship in Phase 6 with the correct `user_id = auth.uid()` server-derived pattern.
 
 ## Verification
 
-- Two-user e2e: owner invites, invitee accepts, both log separate items, owner finalizes, both see attribution on `/history/[id]`.
+- Two-user e2e (`e2e/shared-session-invite.spec.ts`): owner invites, invitee accepts, both log separate items (one via `+1`, one via `+g`), owner calls `finalizeSharedSession`, both see per-user attribution on `/history/[id]`.
+- `grep -rn "sharedSessionId\|SharedSession" components/` must still return zero matches other than `components/share-drawer.tsx` (invariant #17 must stand; share-drawer is new and tightly scoped to the shared branch — acceptable per the carve-out in #17).
 - Token reuse returns `invite_already_used`.
 - Token expiry returns `invite_expired`.
-- Rate limit blocks 11th join from same IP.
+- Session-finalized returns `session_finalized` on join.
+- Rate limit blocks 11th join from same IP (unit test in `lib/invite.test.ts` using the same mocked Redis/in-memory store the places-rate-limit suite uses).
+- `grep -n crypto.randomBytes lib/invite.ts` present; no `Math.random`.
 
 ## Exit criteria
 
@@ -582,25 +704,47 @@ Tracker UI changes:
 
 **Model tier:** default · **Parallelizable:** no (final) · **Rollback:** revert commit.
 
-## Context brief
+## Context brief (cold start, revised 2026-04-14)
 
-Final sweep. Consolidate unit + e2e tests, deal with the legacy `fillFactor` / `appetiteBudget` columns, and confirm CI is green.
+Final sweep. By the time this phase starts, Phases 0/1/2/5 are on `main` (merged), Phases 6/3/4/7 are merged too. Job now: round-trip test the full flow, audit Appendix B invariants, decide on the optional `0007_retire_legacy_appetite.sql` migration, tighten anything the prior phases left as TODO, and ship a README update.
 
 ## Files to touch
 
-- New Playwright specs: `e2e/result-gate.spec.ts`, `e2e/shared-session-invite.spec.ts`, `e2e/grams-log.spec.ts`.
-- New unit tests: `lib/calc.test.ts` (grams branches), `lib/invite.test.ts` (token generation entropy).
-- Grep for lingering references to `/import`, `fillFactor` where it's no longer used display-side, and remove dead code.
-- **Optional** migration `0007_retire_legacy_appetite.sql`: drop `session_records.appetite_budget` **only if** a prod-data audit confirms zero rows missing `appetite_budget_grams` AND Appendix B invariant #9 (additive/reversible) is re-evaluated and signed off by the user. Without that sign-off this migration is **blocked**; record the audit result in the PR body before merging (reviewer-flagged m6).
+- Playwright specs (create if missing, extend if already exist):
+  - `e2e/result-gate.spec.ts` — the 4 cases from Phase 4
+  - `e2e/shared-session-invite.spec.ts` — two-user invite/join/log/finalize from Phase 7
+  - `e2e/grams-log.spec.ts` — solo `+g` flow + result breakdown grams column from Phase 3
+- Unit tests:
+  - `lib/calc.test.ts` — confirm `computeFullness` covers all three branches (Phase 1 added the test; verify coverage)
+  - `lib/invite.test.ts` — token generation entropy + format + rate-limit path (Phase 7 added it; verify)
+  - `app/actions/shared-session.finalize.test.ts` — already in PR #10; re-run as part of the sweep
+- Grep sweep targets (dead code removal):
+  - `fillFactor` in display-side code (the derivation in seed catalog stays; display references should all route through `computeFullness`)
+  - `/import` lingering references
+  - `appetiteBudget` mutations outside the legacy-compat clamp in `app/setup/page.tsx`
+  - `console.*` in production code paths (allow in tests)
+- **Optional** migration `0007_retire_legacy_appetite.sql`: drops `session_records.appetite_budget` **only if** a prod-data audit confirms zero session_records rows have `appetite_budget_grams IS NULL AND finished_at > now() - interval '30 days'` AND the user signs off explicitly. Without that sign-off this migration is **blocked**; record the audit query + result + sign-off quote in the PR body before merging (reviewer-flagged m6). If deferred, open a follow-up tracking issue.
 
 ## Tasks
 
-1. Run `npm run lint && npm test && npx playwright test && npm run build`. Every gate green.
-2. Manually walk the full flow in Chrome + mobile Safari viewport: solo grams, invite, join, log, finalize, history, stats.
-3. Review `Appendix B` invariants for each prior phase. Fix any drift.
-4. Open a cleanup PR to delete dead code the prior phases flagged with TODOs.
-5. Update `README.md` with the new shared-session + grams feature blurb.
-6. Close out the plan by moving it under `plans/done/` (convention check: confirm this dir is or isn't used — adopt whichever matches the existing plans/docker-kubernetes.md pattern; leave in place if none).
+1. Run the full gate: `npm run lint && npm test && npx playwright test && npm run build`. Every gate green on main post-merge.
+2. Manually walk the full flow in Chrome desktop + mobile Safari viewport:
+   - Solo: setup (grams preset) → library (add item by grams) → tracker (`+1`, `+0.5`, `+g`) → finish → result (grams column + fullness row) → history
+   - Shared: sign in → setup → "Invite friends" → share drawer → (second browser) accept invite → both log entries → owner finalizes → both open `/history/[id]` and see attribution
+3. Appendix B invariant audit — run each check below:
+   - `#1` grep `computeTotals\|totalEatenValue` outside `lib/calc*` → expect all matches to be callers, not redefinitions
+   - `#4` grep `createAdminClient` → only in `app/actions/migrate.ts` + Phase 6 finalize path if it used admin (verify it did not)
+   - `#5` grep `auth.uid()` in migrations — every predicate should be `(select auth.uid())`
+   - `#6` `npm run lint` passes with `no-explicit-any: error`
+   - `#8` grep `JSON.stringify` in server actions — zero matches (the one in `lib/store.ts#finishMeal` is allowed per the note)
+   - `#13` grep `error\|destructive` in progress-bar renders — no error state when over budget
+   - `#14` grep `user_id:` in shared-session insert bodies — must be `auth.uid()` or the authenticated client default, never from the client payload
+   - `#16` grep `logEaten\b` — every occurrence paired with a `sharedSessionId` branch
+   - `#17` grep `sharedSessionId\|SharedSession` in `components/` — zero matches outside `components/share-*.tsx`
+4. Delete dead code the prior phases flagged with TODOs (if any). One focused cleanup PR.
+5. Update `README.md` with: shared-session feature blurb (2–3 sentences), grams-based appetite blurb (1 sentence + link to `docs/quantitative-appetite.md`), screenshot of share drawer.
+6. Close out the plan: add a "STATUS: COMPLETE (<date>)" line at the very top. Do **not** move to `plans/done/` — the existing `plans/docker-kubernetes.md` sets the in-place convention.
+7. Save post-plan memory entries listed at the bottom of this plan.
 
 ## Verification
 
