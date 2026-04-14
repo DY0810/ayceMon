@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
+import {
+  addSharedLibraryItem,
+  removeSharedLibraryItem,
+} from "@/app/actions/shared-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +36,8 @@ import {
 import { itemSource } from "@/lib/items";
 import { adjustSeedRange, tierMultiplier } from "@/lib/pricing";
 import { useAyceStore } from "@/lib/store";
-import type { PriceSource } from "@/lib/types";
+import type { Item, ItemId, PriceSource } from "@/lib/types";
+import { useSharedSession } from "@/lib/use-shared-session";
 
 interface ItemFormErrors {
   name?: string;
@@ -53,11 +58,61 @@ function deriveFillFactor(gramsPerUnit: number): number {
 
 export default function LibraryPage() {
   const router = useRouter();
-  const session = useAyceStore((state) => state.session);
+  const soloSession = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
-  const addItemToLibrary = useAyceStore((state) => state.addItemToLibrary);
-  const removeItemFromLibrary = useAyceStore(
+  const soloAddItem = useAyceStore((state) => state.addItemToLibrary);
+  const soloRemoveItem = useAyceStore(
     (state) => state.removeItemFromLibrary
+  );
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+
+  const shared = useSharedSession(sharedSessionId);
+  const session = sharedSessionId ? shared.session : soloSession;
+  // Same pattern as tracker — depend on the stable `refresh` function, not
+  // the parent `shared` view object (which is rebuilt every render).
+  const refreshShared = shared.refresh;
+
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const addItemToLibrary = useCallback(
+    (item: Omit<Item, "id">) => {
+      if (!sharedSessionId) {
+        soloAddItem(item);
+        return;
+      }
+      const withId: Item = { ...item, id: crypto.randomUUID() };
+      setMutationError(null);
+      void addSharedLibraryItem({ sessionId: sharedSessionId, item: withId })
+        .then((result) => {
+          if (!result.ok) {
+            setMutationError("Could not add that item. Try again.");
+            return;
+          }
+          return refreshShared();
+        })
+        .catch(() => setMutationError("Could not add that item. Try again."));
+    },
+    [sharedSessionId, soloAddItem, refreshShared],
+  );
+
+  const removeItemFromLibrary = useCallback(
+    (id: ItemId) => {
+      if (!sharedSessionId) {
+        soloRemoveItem(id);
+        return;
+      }
+      setMutationError(null);
+      void removeSharedLibraryItem({ sessionId: sharedSessionId, itemId: id })
+        .then((result) => {
+          if (!result.ok) {
+            setMutationError("Could not remove that item. Try again.");
+            return;
+          }
+          return refreshShared();
+        })
+        .catch(() => setMutationError("Could not remove that item. Try again."));
+    },
+    [sharedSessionId, soloRemoveItem, refreshShared],
   );
 
   const cityTier = session?.cityTier;
@@ -85,11 +140,19 @@ export default function LibraryPage() {
 
   // Redirect guard: no session → /setup. Run after hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
+  // Shared mode: wait for the first poll to resolve before bouncing.
   useEffect(() => {
-    if (hasHydrated && session === null) {
+    if (!hasHydrated) return;
+    if (sharedSessionId) {
+      if (!shared.loading && shared.session === null) {
+        router.replace("/setup");
+      }
+      return;
+    }
+    if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, router]);
+  }, [hasHydrated, session, sharedSessionId, shared.loading, shared.session, router]);
 
   const summary = useMemo(() => {
     const lib = session?.library ?? [];
@@ -410,6 +473,15 @@ export default function LibraryPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {mutationError ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-2xl border border-[#e23b4a]/40 bg-[#e23b4a]/10 px-4 py-3 text-sm text-[#e23b4a]"
+        >
+          {mutationError}
+        </p>
+      ) : null}
 
       {session.library.length > 0 && summary.bestRatio ? (
         <div className="mb-8 hidden gap-4 sm:grid sm:grid-cols-3">

@@ -25,6 +25,12 @@ interface AyceStore {
   // Phase 1 just declares the field; `finishMeal()` does not push into it
   // yet. Populated by Phase 6.
   finishedSessions: Session[];
+  // Phase 6 (collab-and-quantitative-appetite): when non-null, the active
+  // session is a server-backed shared session. Tracker/library/result
+  // branch on this to call the `shared-session` server actions instead of
+  // mutating Zustand. Guests and solo signed-in sessions keep it null.
+  sharedSessionId: string | null;
+  setSharedSessionId: (id: string | null) => void;
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
   startSession: (input: {
@@ -64,6 +70,8 @@ export const useAyceStore = create<AyceStore>()(
     (set) => ({
       session: null,
       finishedSessions: [],
+      sharedSessionId: null,
+      setSharedSessionId: (id) => set({ sharedSessionId: id }),
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
       startSession: ({
@@ -88,7 +96,7 @@ export const useAyceStore = create<AyceStore>()(
             startedAt: Date.now(),
           },
         }),
-      endSession: () => set({ session: null }),
+      endSession: () => set({ session: null, sharedSessionId: null }),
       setResolvedPlace: (place) =>
         set((state) =>
           state.session

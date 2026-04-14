@@ -70,6 +70,7 @@ export type Database = {
           appetite_budget_grams: number | null
           buffet_price: number
           client_session_id: string
+          contributors: Json
           created_at: string
           eaten: Json
           finished_at: string
@@ -88,6 +89,7 @@ export type Database = {
           appetite_budget_grams?: number | null
           buffet_price: number
           client_session_id: string
+          contributors?: Json
           created_at?: string
           eaten: Json
           finished_at: string
@@ -106,6 +108,7 @@ export type Database = {
           appetite_budget_grams?: number | null
           buffet_price?: number
           client_session_id?: string
+          contributors?: Json
           created_at?: string
           eaten?: Json
           finished_at?: string
@@ -122,6 +125,187 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "session_records_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_session_collaborators: {
+        Row: {
+          joined_at: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string
+          role?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_session_collaborators_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shared_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_session_entries: {
+        Row: {
+          grams: number | null
+          id: string
+          item_id: string
+          logged_at: string
+          session_id: string
+          units: number
+          user_id: string
+        }
+        Insert: {
+          grams?: number | null
+          id?: string
+          item_id: string
+          logged_at?: string
+          session_id: string
+          units: number
+          user_id: string
+        }
+        Update: {
+          grams?: number | null
+          id?: string
+          item_id?: string
+          logged_at?: string
+          session_id?: string
+          units?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_session_entries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shared_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_session_entries_session_id_item_id_fkey"
+            columns: ["session_id", "item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_session_items"
+            referencedColumns: ["session_id", "id"]
+          },
+          {
+            foreignKeyName: "shared_session_entries_session_id_user_id_fkey"
+            columns: ["session_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "shared_session_collaborators"
+            referencedColumns: ["session_id", "user_id"]
+          },
+        ]
+      }
+      shared_session_items: {
+        Row: {
+          ala_carte_value: number
+          category: string | null
+          created_at: string
+          fill_factor: number
+          grams_per_unit: number | null
+          id: string
+          name: string
+          session_id: string
+          source_kind: string | null
+          source_ref: string | null
+        }
+        Insert: {
+          ala_carte_value: number
+          category?: string | null
+          created_at?: string
+          fill_factor: number
+          grams_per_unit?: number | null
+          id: string
+          name: string
+          session_id: string
+          source_kind?: string | null
+          source_ref?: string | null
+        }
+        Update: {
+          ala_carte_value?: number
+          category?: string | null
+          created_at?: string
+          fill_factor?: number
+          grams_per_unit?: number | null
+          id?: string
+          name?: string
+          session_id?: string
+          source_kind?: string | null
+          source_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_session_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shared_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_sessions: {
+        Row: {
+          appetite_budget: number | null
+          appetite_budget_grams: number | null
+          buffet_price: number
+          city_tier: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          owner_user_id: string
+          resolved_place: Json | null
+          restaurant_id: string | null
+          restaurant_name: string | null
+          started_at: string
+        }
+        Insert: {
+          appetite_budget?: number | null
+          appetite_budget_grams?: number | null
+          buffet_price: number
+          city_tier?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          owner_user_id: string
+          resolved_place?: Json | null
+          restaurant_id?: string | null
+          restaurant_name?: string | null
+          started_at: string
+        }
+        Update: {
+          appetite_budget?: number | null
+          appetite_budget_grams?: number | null
+          buffet_price?: number
+          city_tier?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          owner_user_id?: string
+          resolved_place?: Json | null
+          restaurant_id?: string | null
+          restaurant_name?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_sessions_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
@@ -166,7 +350,14 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      is_shared_session_collaborator: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_shared_session_owner: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
