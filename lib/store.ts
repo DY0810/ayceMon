@@ -157,9 +157,9 @@ export const useAyceStore = create<AyceStore>()(
           return {
             session: finished,
             // Deep-copy the finished session into finishedSessions so the
-            // guest→user migration (Phase 6) can drain it into session_records
-            // on first sign-in. We push regardless of whether resolvedPlace is
-            // set — sessions without a place go to the /import UI later.
+            // guest→user migration drains it into session_records on first
+            // sign-in. Sessions without a resolvedPlace promote with
+            // restaurant_id = null + restaurant_name fallback.
             finishedSessions: [
               ...state.finishedSessions,
               JSON.parse(JSON.stringify(finished)) as Session,

@@ -76,23 +76,9 @@ export function GuestMigrationEffect() {
         }
 
         const imported = result.promoted.length;
-        const needPlace = result.skipped.filter(
-          (s) => s.reason === "no_place",
-        ).length;
 
-        if (imported > 0 || needPlace > 0) {
-          const parts: string[] = [];
-          if (imported > 0) {
-            parts.push(
-              `Imported ${imported} meal${imported === 1 ? "" : "s"}.`,
-            );
-          }
-          if (needPlace > 0) {
-            parts.push(
-              `${needPlace} still need${needPlace === 1 ? "s" : ""} a restaurant picked.`,
-            );
-          }
-          setBanner(parts.join(" "));
+        if (imported > 0) {
+          setBanner(`Imported ${imported} meal${imported === 1 ? "" : "s"}.`);
           setTimeout(() => setBanner(null), 6000);
         }
 

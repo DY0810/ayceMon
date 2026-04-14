@@ -18,7 +18,7 @@ type RestaurantsInsert =
 
 export interface MigrateResult {
   promoted: string[];
-  skipped: { id: string; reason: string }[];
+  skipped: { id: string; reason: "not_finished" }[];
   failed: { id: string; error: string }[];
 }
 
@@ -40,12 +40,6 @@ export async function promoteGuestSessions(
   }
 
   for (const session of sessions) {
-    // Skip sessions without a resolved place — they go to /import.
-    if (!session.resolvedPlace) {
-      result.skipped.push({ id: session.id, reason: "no_place" });
-      continue;
-    }
-
     // Skip sessions that haven't been finished.
     if (!session.finishedAt) {
       result.skipped.push({ id: session.id, reason: "not_finished" });
@@ -53,51 +47,58 @@ export async function promoteGuestSessions(
     }
 
     try {
-      // Step 1 — re-fetch Places Details server-side. Same trust boundary
-      // as Phase 3's finishAndSaveSession (Appendix B #5).
-      const place = await fetchPlaceDetails(
-        session.resolvedPlace.googlePlaceId,
-      );
+      // Step 1 — resolve the canonical restaurant only when the guest
+      // captured a Google Place at setup. Sessions without one promote
+      // with restaurant_id = null + restaurant_name fallback, mirroring
+      // finishAndSaveSession's manual-name path.
+      let restaurantId: string | null = null;
 
-      // Step 2 — upsert the canonical restaurant via admin client (same
-      // as Phase 3, Appendix B #4).
-      const restaurantRow: RestaurantsInsert = {
-        google_place_id: place.googlePlaceId,
-        name: place.name,
-        formatted_address: place.formattedAddress,
-        lat: place.lat,
-        lng: place.lng,
-      };
-      const { data: restaurant, error: restaurantError } = await admin
-        .from("restaurants")
-        .upsert(restaurantRow, {
-          onConflict: "google_place_id",
-          ignoreDuplicates: false,
-        })
-        .select("id")
-        .single();
+      if (session.resolvedPlace) {
+        const place = await fetchPlaceDetails(
+          session.resolvedPlace.googlePlaceId,
+        );
 
-      if (restaurantError || !restaurant) {
-        result.failed.push({
-          id: session.id,
-          error: "restaurant_upsert_failed",
-        });
-        continue;
+        const restaurantRow: RestaurantsInsert = {
+          google_place_id: place.googlePlaceId,
+          name: place.name,
+          formatted_address: place.formattedAddress,
+          lat: place.lat,
+          lng: place.lng,
+        };
+        const { data: restaurant, error: restaurantError } = await admin
+          .from("restaurants")
+          .upsert(restaurantRow, {
+            onConflict: "google_place_id",
+            ignoreDuplicates: false,
+          })
+          .select("id")
+          .single();
+
+        if (restaurantError || !restaurant) {
+          result.failed.push({
+            id: session.id,
+            error: "restaurant_upsert_failed",
+          });
+          continue;
+        }
+
+        restaurantId = restaurant.id;
       }
 
-      // Step 3 — compute totals via the single source of truth.
+      // Step 2 — compute totals via the single source of truth.
       const { total, margin, won } = computeTotals(
         session.library,
         session.eaten,
         session.buffetPrice,
       );
 
-      // Step 4 — upsert session record with DB-level idempotency.
+      // Step 3 — upsert session record with DB-level idempotency.
       // The unique index on (user_id, client_session_id) makes this safe
       // against double-tab races, network retries, and full-page reloads.
       const sessionRow: SessionRecordsInsert = {
         user_id: user.id,
-        restaurant_id: restaurant.id,
+        restaurant_id: restaurantId,
+        restaurant_name: session.restaurantName ?? null,
         client_session_id: session.id,
         buffet_price: session.buffetPrice,
         appetite_budget: session.appetiteBudget,
