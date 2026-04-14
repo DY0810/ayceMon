@@ -64,6 +64,44 @@ export type Database = {
         }
         Relationships: []
       }
+      session_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          session_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          session_id: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          session_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_invites_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shared_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_records: {
         Row: {
           appetite_budget: number
@@ -350,6 +388,13 @@ export type Database = {
       }
     }
     Functions: {
+      get_shared_session_collaborator_names: {
+        Args: { p_session_id: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       is_shared_session_collaborator: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: boolean
@@ -358,6 +403,7 @@ export type Database = {
         Args: { p_session_id: string; p_user_id: string }
         Returns: boolean
       }
+      redeem_session_invite: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

@@ -28,6 +28,12 @@ export interface EatenEntry {
   // Phase 1: optional direct grams override. When set, it wins over
   // `units * item.gramsPerUnit` in computeFullness.
   grams?: number;
+  // Phase 7 (collab-and-quantitative-appetite): per-entry attribution
+  // preserved in the finalized `session_records.eaten` jsonb. Set by
+  // `finalizeSharedSession` for shared sessions; absent for solo
+  // sessions. Consumers (/history/[id]) group rows by this when
+  // `session_records.contributors` is non-empty.
+  userId?: string;
 }
 
 export interface Session {
@@ -49,6 +55,11 @@ export interface Session {
   // ever trusted server-side — the other fields are display-only and the
   // server re-fetches Places Details before persisting.
   resolvedPlace?: ResolvedPlace;
+  // Phase 7 (collab-and-quantitative-appetite): per-user attribution for
+  // a finalized shared session projected into the draft shape. Solo
+  // sessions always leave this empty / absent — the /result page's
+  // flat-vs-grouped branch uses `contributors?.length > 0` as the gate.
+  contributors?: SessionContributor[];
 }
 
 // ---------------------------------------------------------------------------

@@ -11,8 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { computeFullness, didYouWin, margin, totalEatenValue } from "@/lib/calc";
-import { formatGrams } from "@/lib/format";
+import {
+  computeFullness,
+  computeTotals,
+  didYouWin,
+  margin,
+  totalEatenValue,
+} from "@/lib/calc";
+import { UNATTRIBUTED_USER_ID, formatGrams, shortUserId } from "@/lib/format";
 import { useAyceStore } from "@/lib/store";
 import type { EatenEntry, Item, ItemId } from "@/lib/types";
 
@@ -31,6 +37,15 @@ interface BreakdownRow {
   // source is unknown. The table renders "—" for null, never "0g" (which
   // would misleadingly imply a user-weighed zero-gram portion).
   gramsDisplay: number | null;
+}
+
+// Phase 7: per-user slice of the breakdown table. Only populated when
+// `session.contributors?.length > 0` (i.e. a shared session was
+// projected into the draft shape). Solo sessions render flat.
+interface UserGroup {
+  userId: string;
+  rows: BreakdownRow[];
+  subtotal: number;
 }
 
 export default function ResultPage() {
@@ -55,6 +70,7 @@ export default function ResultPage() {
         marginValue: 0,
         wins: false,
         rows: [] as BreakdownRow[],
+        groups: [] as UserGroup[],
         gramsConsumed: 0,
         budgetGrams: null as number | null,
       };
@@ -79,6 +95,17 @@ export default function ResultPage() {
       });
     }
 
+    // Phase 7: per-user grouping is gated on `contributors` being
+    // non-empty. /result is only reached by guest solo flow today
+    // (signed-in + shared sessions route to /history/[id]), so this
+    // branch is inert for the current user paths — but the plan asks
+    // for the check to be in place so a future solo→shared bridge
+    // lights up automatically.
+    const groups: UserGroup[] =
+      session.contributors && session.contributors.length > 0
+        ? buildUserGroups(session.library, session.eaten, itemsById)
+        : [];
+
     const { grams: gramsConsumed } = computeFullness(
       session.library,
       session.eaten,
@@ -90,6 +117,7 @@ export default function ResultPage() {
       marginValue: margin(session),
       wins: didYouWin(session),
       rows,
+      groups,
       gramsConsumed,
       budgetGrams: session.appetiteBudgetGrams ?? null,
     };
@@ -99,8 +127,15 @@ export default function ResultPage() {
     return null;
   }
 
-  const { totalValue, marginValue, wins, rows, gramsConsumed, budgetGrams } =
-    summary;
+  const {
+    totalValue,
+    marginValue,
+    wins,
+    rows,
+    groups,
+    gramsConsumed,
+    budgetGrams,
+  } = summary;
   const buffetPrice = session.buffetPrice;
   const fullnessLabel =
     budgetGrams != null && budgetGrams > 0
@@ -234,51 +269,27 @@ export default function ResultPage() {
               <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
                 You didn&apos;t log anything this meal.
               </p>
+            ) : groups.length > 0 ? (
+              <div className="flex flex-col gap-6">
+                {groups.map((g) => (
+                  <section
+                    key={g.userId}
+                    aria-label={`Logged by ${shortUserId(g.userId)}`}
+                  >
+                    <header className="flex items-baseline justify-between gap-2 pb-2">
+                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-[#191c1f] lg:text-base dark:text-white">
+                        {shortUserId(g.userId)}
+                      </h3>
+                      <span className="text-sm font-semibold tabular-nums text-[#191c1f] dark:text-white">
+                        ${g.subtotal.toFixed(2)}
+                      </span>
+                    </header>
+                    <BreakdownTable rows={g.rows} />
+                  </section>
+                ))}
+              </div>
             ) : (
-              <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
-                <thead>
-                  <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
-                    <th scope="col" className="w-auto py-2 pr-2 font-medium">
-                      Item
-                    </th>
-                    <th scope="col" className="w-12 py-2 px-2 text-right font-medium">
-                      Units
-                    </th>
-                    <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
-                      Grams
-                    </th>
-                    <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
-                      Per unit
-                    </th>
-                    <th scope="col" className="w-20 py-2 pl-2 text-right font-medium">
-                      Line total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.itemId} className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10">
-                      <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
-                        {row.name}
-                      </td>
-                      <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
-                        {formatUnits(row.units)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
-                        {row.gramsDisplay === null
-                          ? "—"
-                          : formatGrams(row.gramsDisplay)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
-                        ${row.perUnitValue.toFixed(2)}
-                      </td>
-                      <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
-                        ${row.lineTotal.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <BreakdownTable rows={rows} />
             )}
           </CardContent>
           <CardFooter className="lg:hidden">
@@ -365,3 +376,102 @@ function resolveGramsDisplay(entry: EatenEntry, item: Item): number | null {
   }
   return null;
 }
+
+// Phase 7: flat breakdown table, reused by both the solo-flat render
+// and the shared-grouped render (one table per user).
+function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
+  return (
+    <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
+      <thead>
+        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
+          <th scope="col" className="w-auto py-2 pr-2 font-medium">
+            Item
+          </th>
+          <th scope="col" className="w-12 py-2 px-2 text-right font-medium">
+            Units
+          </th>
+          <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
+            Grams
+          </th>
+          <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
+            Per unit
+          </th>
+          <th scope="col" className="w-20 py-2 pl-2 text-right font-medium">
+            Line total
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr
+            key={`${row.itemId}-${i}`}
+            className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+          >
+            <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
+              {row.name}
+            </td>
+            <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
+              {formatUnits(row.units)}
+            </td>
+            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+              {row.gramsDisplay === null
+                ? "—"
+                : formatGrams(row.gramsDisplay)}
+            </td>
+            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+              ${row.perUnitValue.toFixed(2)}
+            </td>
+            <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
+              ${row.lineTotal.toFixed(2)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Phase 7: group eaten entries by `entry.userId` and build per-user
+// BreakdownRow slices. Called only when `session.contributors` is
+// non-empty; solo sessions skip this entirely (and `eaten` has no
+// userId anyway). `computeTotals` on each slice reuses the single
+// source of truth (invariant #1).
+function buildUserGroups(
+  library: Item[],
+  eaten: EatenEntry[],
+  itemsById: Map<ItemId, Item>,
+): UserGroup[] {
+  const entriesByUser = new Map<string, EatenEntry[]>();
+  for (const entry of eaten) {
+    const key = entry.userId ?? UNATTRIBUTED_USER_ID;
+    const list = entriesByUser.get(key) ?? [];
+    list.push(entry);
+    entriesByUser.set(key, list);
+  }
+  const groups: UserGroup[] = [];
+  for (const [userId, entries] of entriesByUser) {
+    const groupRows: BreakdownRow[] = [];
+    for (const entry of entries) {
+      const item = itemsById.get(entry.itemId);
+      if (!item) continue;
+      groupRows.push({
+        itemId: entry.itemId,
+        name: item.name,
+        units: entry.units,
+        perUnitValue: item.alaCarteValue,
+        lineTotal: item.alaCarteValue * entry.units,
+        gramsDisplay: resolveGramsDisplay(entry, item),
+      });
+    }
+    const { total } = computeTotals(library, entries, 0);
+    groups.push({ userId, rows: groupRows, subtotal: total });
+  }
+  // Stable order: unattributed last, everyone else by userId.
+  groups.sort((a, b) => {
+    if (a.userId === UNATTRIBUTED_USER_ID) return 1;
+    if (b.userId === UNATTRIBUTED_USER_ID) return -1;
+    return a.userId.localeCompare(b.userId);
+  });
+  return groups;
+}
+
