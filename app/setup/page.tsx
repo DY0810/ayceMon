@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { DollarSign, List, Utensils } from "lucide-react";
 
+import { createSharedSession } from "@/app/actions/shared-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RestaurantCombobox } from "@/components/restaurant-combobox";
 import { useAyceStore } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
 import type { CityTier, ResolvedPlace } from "@/lib/types";
 
 interface TierOption {
@@ -59,14 +61,20 @@ const LEGACY_APPETITE_BUDGET_FALLBACK = 50;
 
 type BudgetMode = "preset" | "custom" | "skipped";
 
+// Phase 6: only signed-in users may start an invite (shared) session.
+// Guests always get "solo" — the UI hides the toggle entirely for them.
+type SessionMode = "solo" | "invite";
+
 interface FormErrors {
   buffetPrice?: string;
   customBudgetGrams?: string;
+  sharedSession?: string;
 }
 
 export default function SetupPage() {
   const router = useRouter();
   const startSession = useAyceStore((state) => state.startSession);
+  const setSharedSessionId = useAyceStore((state) => state.setSharedSessionId);
 
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | undefined>(
     undefined,
@@ -79,6 +87,29 @@ export default function SetupPage() {
   const [cityTier, setCityTier] = useState<CityTier>("metro-standard");
   const [errors, setErrors] = useState<FormErrors>({});
   const [resolving, setResolving] = useState(false);
+  const [sessionMode, setSessionMode] = useState<SessionMode>("solo");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Tri-state auth: null = still loading, false = guest, { id } = signed in.
+  // Mirrors the pattern in app/tracker/page.tsx so the toggle only surfaces
+  // to authenticated users (guests cannot create shared sessions —
+  // createSharedSession redirects to /login).
+  const [authUser, setAuthUser] = useState<{ id: string } | null | false>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled) return;
+      setAuthUser(data.user ? { id: data.user.id } : false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_ev, ses) => {
+      setAuthUser(ses?.user ? { id: ses.user.id } : false);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   function resolveBudgetGrams(): number | null {
     if (budgetMode === "skipped") return null;
@@ -132,14 +163,55 @@ export default function SetupPage() {
     }
   }
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (resolving) return;
+    if (resolving || submitting) return;
     const next = validate();
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     const derivedName = resolvedPlace?.name ?? manualName.trim();
     const gramsValue = resolveBudgetGrams();
+
+    // Shared-session path (authed + invite mode): create the server row,
+    // stash its id in Zustand, then mirror the draft shape locally so
+    // tracker/library can render while polling the server.
+    if (sessionMode === "invite") {
+      if (!authUser) {
+        setErrors({ sharedSession: "Sign in to invite collaborators." });
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const result = await createSharedSession({
+          buffetPrice: Number(buffetPrice),
+          appetiteBudget: LEGACY_APPETITE_BUDGET_FALLBACK,
+          appetiteBudgetGrams: gramsValue,
+          cityTier,
+          restaurantName: derivedName || null,
+          startedAt: new Date().toISOString(),
+        });
+        if (!result.ok) {
+          setErrors({ sharedSession: result.error });
+          setSubmitting(false);
+          return;
+        }
+        setSharedSessionId(result.data.id);
+        startSession({
+          restaurantName: derivedName || undefined,
+          buffetPrice: Number(buffetPrice),
+          appetiteBudget: LEGACY_APPETITE_BUDGET_FALLBACK,
+          appetiteBudgetGrams: gramsValue,
+          cityTier,
+          resolvedPlace,
+        });
+        router.push(`/library?session=${result.data.id}`);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    setSharedSessionId(null);
     startSession({
       restaurantName: derivedName || undefined,
       buffetPrice: Number(buffetPrice),
@@ -383,8 +455,70 @@ export default function SetupPage() {
               )}
             </fieldset>
 
-            <Button type="submit" size="lg" className="mt-2 w-full" disabled={resolving}>
-              {resolving ? "Loading restaurant…" : "Start session"}
+            {authUser ? (
+              <fieldset className="flex flex-col gap-3">
+                <legend className="mb-1 text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+                  Session mode
+                </legend>
+                <div
+                  role="group"
+                  aria-label="Session mode"
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {(
+                    [
+                      { value: "solo", label: "Solo", subtitle: "Just me" },
+                      {
+                        value: "invite",
+                        label: "Invite friends",
+                        subtitle: "Shared session",
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const isSelected = sessionMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSessionMode(opt.value)}
+                        aria-pressed={isSelected}
+                        className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-[rgba(25,28,31,0.12)] bg-white text-[#191c1f] hover:bg-[#f4f4f4] aria-pressed:border-[#191c1f] aria-pressed:bg-[#191c1f] aria-pressed:text-white dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-[#262a2e] dark:aria-pressed:border-white dark:aria-pressed:bg-white dark:aria-pressed:text-[#191c1f]"
+                      >
+                        <span className="text-sm font-medium leading-tight">
+                          {opt.label}
+                        </span>
+                        <span className="text-xs opacity-80">
+                          {opt.subtitle}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.sharedSession ? (
+                  <p role="alert" className="text-sm text-[#e23b4a]">
+                    {errors.sharedSession}
+                  </p>
+                ) : (
+                  <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                    {sessionMode === "invite"
+                      ? "We'll give you a link to share after you start."
+                      : "Track just your meal."}
+                  </p>
+                )}
+              </fieldset>
+            ) : null}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="mt-2 w-full"
+              disabled={resolving || submitting}
+            >
+              {submitting
+                ? "Starting session…"
+                : resolving
+                  ? "Loading restaurant…"
+                  : "Start session"}
             </Button>
           </form>
         </div>
