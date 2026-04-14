@@ -23,13 +23,24 @@ export default function CombosPage() {
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
   const clearEaten = useAyceStore((state) => state.clearEaten);
   const logEaten = useAyceStore((state) => state.logEaten);
+  // Post-plan gate (2026-04-14): /combos is solo-only. The optimizer reads
+  // the Zustand `session` which isn't populated in shared/invite mode, so
+  // a shared-mode user landing here would see an empty combo list. Kick
+  // them back to /tracker (the canonical in-session surface for shared).
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
 
-  // Redirect guard: no session → /setup. Wait for hydration.
+  // Redirect guards: shared mode → /tracker; no session → /setup. Wait
+  // for hydration so we don't race the zustand persist rehydration.
   useEffect(() => {
-    if (hasHydrated && session === null) {
+    if (!hasHydrated) return;
+    if (sharedSessionId !== null) {
+      router.replace("/tracker");
+      return;
+    }
+    if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, router]);
+  }, [hasHydrated, session, sharedSessionId, router]);
 
   // Memoize the optimizer call. Re-run only when the inputs change.
   const combos = useMemo(() => {
@@ -45,7 +56,7 @@ export default function CombosPage() {
     return map;
   }, [session]);
 
-  if (!hasHydrated || session === null) {
+  if (!hasHydrated || session === null || sharedSessionId !== null) {
     return null;
   }
 

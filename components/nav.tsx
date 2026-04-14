@@ -24,11 +24,21 @@ interface NavClientProps {
 // /result link. Shared-session finishedAt is mirrored into the Zustand
 // store by /result itself so the nav doesn't have to mount the polling
 // hook on every route (see lib/use-shared-session.ts + app/result/page.tsx).
+// Post-plan (2026-04-14):
+//  - `no-active-session` hides /setup while a session is in progress, so
+//    users can't accidentally start a second session on top of an active
+//    one. The /setup page itself redirects to /tracker as a defensive
+//    second gate.
+//  - `solo-in-session` hides /combos in shared-session mode because the
+//    combo optimizer reads the Zustand solo `session` — combos are a
+//    solo-only feature until there's a shared-aware optimizer.
 type NavVisibility =
   | "always"
   | "in-session"
+  | "solo-in-session"
   | "authed"
-  | "session-finished";
+  | "session-finished"
+  | "no-active-session";
 
 interface NavItem {
   readonly href: string;
@@ -37,9 +47,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/setup", label: "Setup", visibility: "always" },
+  { href: "/setup", label: "Setup", visibility: "no-active-session" },
   { href: "/library", label: "Library", visibility: "in-session" },
-  { href: "/combos", label: "Combos", visibility: "in-session" },
+  { href: "/combos", label: "Combos", visibility: "solo-in-session" },
   { href: "/tracker", label: "Tracker", visibility: "in-session" },
   { href: "/result", label: "Result", visibility: "session-finished" },
   { href: "/history", label: "History", visibility: "authed" },
@@ -71,6 +81,16 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
     hasHydrated &&
     (((session?.finishedAt ?? null) !== null) ||
       (sharedSessionId !== null && sharedSessionFinishedAt !== null));
+  // In-progress = any session (solo or shared) whose finishedAt is still
+  // null. Gates /setup (can't start a second session mid-meal) and, via
+  // `solo-in-session`, /combos (solo-only feature).
+  const soloInProgress =
+    hasHydrated && session !== null && !session.finishedAt;
+  const sharedInProgress =
+    hasHydrated &&
+    sharedSessionId !== null &&
+    sharedSessionFinishedAt === null;
+  const anyInProgress = soloInProgress || sharedInProgress;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -103,10 +123,20 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
         return true;
       case "in-session":
         return sessionActive || signedIn;
+      case "solo-in-session":
+        // Visible only when there's a solo (non-shared) active session.
+        // Hidden during shared/invite mode because /combos reads the
+        // Zustand solo session, which isn't populated for shared flows.
+        return soloInProgress && sharedSessionId === null;
       case "authed":
         return signedIn;
       case "session-finished":
         return sessionFinished;
+      case "no-active-session":
+        // Setup is hidden whenever a session is in progress so users
+        // can't start a second one on top. Pre-hydration we keep it
+        // visible to avoid flashing the link off on first paint.
+        return !hasHydrated || !anyInProgress;
       default: {
         // Exhaustiveness guard — TypeScript errors here if a new
         // NavVisibility variant is added without a matching case above.
