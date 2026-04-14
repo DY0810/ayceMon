@@ -489,6 +489,18 @@ export async function addSharedLibraryItem(
     .upsert(row, { onConflict: "session_id,id" });
 
   if (error) {
+    // Diagnostic logging — kept until we're confident the RLS relaxation
+    // landed on every environment. Postgres error code 42501 is the
+    // canonical RLS/insufficient-privilege denial; any other code points
+    // to a different class of failure (FK, unique, type mismatch, etc.).
+    console.error("[addSharedLibraryItem] upsert failed", {
+      sessionId: input.sessionId,
+      itemId: item.id,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     return { ok: false, error: "item_insert_failed" };
   }
 
@@ -527,6 +539,14 @@ export async function removeSharedLibraryItem(
     .eq("id", input.itemId);
 
   if (error) {
+    console.error("[removeSharedLibraryItem] delete failed", {
+      sessionId: input.sessionId,
+      itemId: input.itemId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     return { ok: false, error: "item_delete_failed" };
   }
 
