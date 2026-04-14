@@ -31,6 +31,13 @@ interface AyceStore {
   // mutating Zustand. Guests and solo signed-in sessions keep it null.
   sharedSessionId: string | null;
   setSharedSessionId: (id: string | null) => void;
+  // Phase 4 (collab-and-quantitative-appetite): narrow mirror of the polled
+  // shared-session's `finished_at` so the nav can decide whether to surface
+  // /result without mounting the polling hook on every route. Written by
+  // the /result page from its own useSharedSession call; cleared when the
+  // active shared session is torn down.
+  sharedSessionFinishedAt: number | null;
+  setSharedSessionFinishedAt: (ts: number | null) => void;
   _hasHydrated: boolean;
   setHasHydrated: (v: boolean) => void;
   startSession: (input: {
@@ -71,7 +78,14 @@ export const useAyceStore = create<AyceStore>()(
       session: null,
       finishedSessions: [],
       sharedSessionId: null,
-      setSharedSessionId: (id) => set({ sharedSessionId: id }),
+      // Null the mirror whenever the active shared session changes. Prevents
+      // a stale `finishedAt` from a prior shared session bleeding into the
+      // nav visibility rule when a new shared session begins.
+      setSharedSessionId: (id) =>
+        set({ sharedSessionId: id, sharedSessionFinishedAt: null }),
+      sharedSessionFinishedAt: null,
+      setSharedSessionFinishedAt: (ts) =>
+        set({ sharedSessionFinishedAt: ts }),
       _hasHydrated: false,
       setHasHydrated: (v) => set({ _hasHydrated: v }),
       startSession: ({
@@ -96,7 +110,8 @@ export const useAyceStore = create<AyceStore>()(
             startedAt: Date.now(),
           },
         }),
-      endSession: () => set({ session: null, sharedSessionId: null }),
+      endSession: () =>
+        set({ session: null, sharedSessionId: null, sharedSessionFinishedAt: null }),
       setResolvedPlace: (place) =>
         set((state) =>
           state.session

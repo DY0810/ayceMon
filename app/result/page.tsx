@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/card";
 import { didYouWin, margin, totalEatenValue } from "@/lib/calc";
 import { useAyceStore } from "@/lib/store";
-import type { Item, ItemId } from "@/lib/types";
+import type { Item, ItemId, Session } from "@/lib/types";
+import { useSharedSession } from "@/lib/use-shared-session";
 
 // Threshold for the "right on the line" headline (anti-pattern guard
 // from PLAN.md Phase 5: don't celebrate or mourn pennies).
@@ -29,18 +30,74 @@ interface BreakdownRow {
 
 export default function ResultPage() {
   const router = useRouter();
-  const session = useAyceStore((state) => state.session);
+  const soloSession = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
   const endSession = useAyceStore((state) => state.endSession);
   const resumeMeal = useAyceStore((state) => state.resumeMeal);
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+  const setSharedSessionFinishedAt = useAyceStore(
+    (state) => state.setSharedSessionFinishedAt,
+  );
 
-  // Redirect guard: no session → /setup. Wait for hydration to avoid
-  // bouncing on the initial render before persisted state is loaded.
+  // Phase 6 shared-session view. When sharedSessionId is null the hook
+  // short-circuits and no poll fires — safe to call unconditionally.
+  const shared = useSharedSession(sharedSessionId);
+  const sharedSession = shared.session;
+  // Resolved "active session" — shared takes priority when present, else
+  // the solo Zustand session. Rendered below after the redirect guards.
+  const session: Session | null = sharedSessionId
+    ? sharedSession
+    : soloSession;
+
+  // Redirect guard (Phase 4 truth table):
+  //   1. No active session at all → /setup
+  //   2. Active session with finishedAt === null/undefined → /tracker
+  //   3. Active session with finishedAt set → render this page
+  //
+  // Shared sessions wait for the first poll to resolve before deciding —
+  // redirecting on an unresolved shared session would bounce the user off
+  // /result in the brief window before the route returns its first body.
+  // Keeping the redirect calls inside a single useEffect avoids the
+  // "call router.replace during render" anti-pattern while still giving
+  // each branch of the truth table its own inline early-return below.
   useEffect(() => {
-    if (hasHydrated && session === null) {
-      router.replace("/setup");
+    if (!hasHydrated) return;
+    if (sharedSessionId) {
+      if (shared.loading && sharedSession === null) return;
+      if (sharedSession === null) {
+        router.replace("/setup");
+        return;
+      }
+      if (sharedSession.finishedAt == null) {
+        router.replace("/tracker");
+      }
+      return;
     }
-  }, [hasHydrated, session, router]);
+    if (soloSession === null) {
+      router.replace("/setup");
+      return;
+    }
+    if (soloSession.finishedAt == null) {
+      router.replace("/tracker");
+    }
+  }, [
+    hasHydrated,
+    sharedSessionId,
+    shared.loading,
+    sharedSession,
+    soloSession,
+    router,
+  ]);
+
+  // Mirror the shared session's finishedAt into the store so nav.tsx can
+  // decide the /result link's visibility without spinning up a second
+  // poller. When no shared session is active we never reach the render
+  // path that depends on this mirror, but we still null it defensively so
+  // a prior shared-session finish doesn't leak into a later solo flow.
+  useEffect(() => {
+    if (!sharedSessionId) return;
+    setSharedSessionFinishedAt(sharedSession?.finishedAt ?? null);
+  }, [sharedSessionId, sharedSession?.finishedAt, setSharedSessionFinishedAt]);
 
   const summary = useMemo(() => {
     if (!session) {
@@ -78,9 +135,16 @@ export default function ResultPage() {
     };
   }, [session]);
 
-  if (!hasHydrated || session === null) {
-    return null;
-  }
+  // Render gates — the effect above handles all router.replace calls; the
+  // gates below keep stale/in-progress data off the screen until each
+  // branch of the truth table resolves. The final `!session.finishedAt`
+  // gate matches the effect's redirect condition so we don't flash an
+  // unfinished breakdown in the one render between state change and
+  // navigation completing.
+  if (!hasHydrated) return null;
+  if (sharedSessionId && shared.loading && sharedSession === null) return null;
+  if (session === null) return null;
+  if (!session.finishedAt) return null;
 
   const { totalValue, marginValue, wins, rows } = summary;
   const buffetPrice = session.buffetPrice;
