@@ -48,8 +48,9 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
-# Supabase CLI cache (pooler URL, project ref)
+# Supabase CLI cache (pooler URL, project ref) and per-checkout branch state
 supabase/.temp/
+supabase/.branches/
 
 # local editor settings
 .ide/settings.local.json
