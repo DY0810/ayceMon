@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatGrams } from "./format";
+import { UNATTRIBUTED_USER_ID, formatGrams, shortUserId } from "./format";
 
 describe("formatGrams", () => {
   it("renders integer grams with unit suffix", () => {
@@ -25,5 +25,19 @@ describe("formatGrams", () => {
     // and short enough to read without them.
     expect(formatGrams(1800)).toBe("1800g");
     expect(formatGrams(2500)).toBe("2500g");
+  });
+});
+
+describe("shortUserId", () => {
+  it("returns the first 8 chars of a uuid-like id", () => {
+    expect(shortUserId("11111111-2222-3333-4444-555555555555")).toBe("11111111");
+  });
+
+  it("renders the __unattributed__ sentinel as 'Unattributed'", () => {
+    expect(shortUserId(UNATTRIBUTED_USER_ID)).toBe("Unattributed");
+  });
+
+  it("returns the id unchanged when shorter than 8 chars", () => {
+    expect(shortUserId("abc")).toBe("abc");
   });
 });
