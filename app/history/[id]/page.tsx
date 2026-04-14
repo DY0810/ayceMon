@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -8,7 +9,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/require-user";
-import type { EatenEntry, Item, ItemId } from "@/lib/types";
+import { computeTotals } from "@/lib/calc";
+import { UNATTRIBUTED_USER_ID, shortUserId } from "@/lib/format";
+import type { Database } from "@/lib/supabase/database.types";
+import type {
+  EatenEntry,
+  Item,
+  ItemId,
+  SessionContributor,
+} from "@/lib/types";
 
 // Threshold for the "right on the line" headline (mirrors /result).
 const LINE_EPSILON = 0.5;
@@ -23,6 +32,8 @@ interface DetailRow {
   finished_at: string;
   library: Item[];
   eaten: EatenEntry[];
+  contributors: SessionContributor[];
+  client_session_id: string;
   restaurant_name: string | null;
   restaurants: { name: string; formatted_address: string } | null;
 }
@@ -33,6 +44,15 @@ interface BreakdownRow {
   units: number;
   perUnitValue: number;
   lineTotal: number;
+}
+
+// Phase 7: a user-scoped block of the breakdown table. `rows` is the
+// usual flat rows; `subtotal` is the dollar total for that user.
+interface UserGroup {
+  userId: string;
+  displayName: string;
+  rows: BreakdownRow[];
+  subtotal: number;
 }
 
 function formatUnits(units: number): string {
@@ -63,7 +83,7 @@ export default async function HistoryDetailPage({ params }: PageProps) {
   const { data, error } = await supabase
     .from("session_records")
     .select(
-      "id, buffet_price, total_eaten_value, margin, won, started_at, finished_at, library, eaten, restaurant_name, restaurants(name, formatted_address)",
+      "id, buffet_price, total_eaten_value, margin, won, started_at, finished_at, library, eaten, contributors, client_session_id, restaurant_name, restaurants(name, formatted_address)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -108,6 +128,16 @@ export default async function HistoryDetailPage({ params }: PageProps) {
       lineTotal: item.alaCarteValue * entry.units,
     });
   }
+
+  // Phase 7: per-user groups when this was a shared session. The
+  // `contributors` jsonb was stamped at finalize time; its emptiness
+  // is the flat-vs-grouped gate. We reuse `computeTotals` on each
+  // user's slice so the subtotal math stays on the single source of
+  // truth (invariant #1).
+  const groups: UserGroup[] =
+    row.contributors.length > 0
+      ? await buildUserGroups(row, itemsById, supabase)
+      : [];
 
   const totalValue = row.total_eaten_value;
   const marginValue = row.margin;
@@ -225,46 +255,27 @@ export default async function HistoryDetailPage({ params }: PageProps) {
               <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
                 Nothing was logged during this meal.
               </p>
+            ) : groups.length > 0 ? (
+              <div className="flex flex-col gap-6">
+                {groups.map((g) => (
+                  <section
+                    key={g.userId}
+                    aria-label={`Logged by ${g.displayName}`}
+                  >
+                    <header className="flex items-baseline justify-between gap-2 pb-2">
+                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-[#191c1f] lg:text-base dark:text-white">
+                        {g.displayName}
+                      </h3>
+                      <span className="text-sm font-semibold tabular-nums text-[#191c1f] dark:text-white">
+                        ${g.subtotal.toFixed(2)}
+                      </span>
+                    </header>
+                    <BreakdownTable rows={g.rows} />
+                  </section>
+                ))}
+              </div>
             ) : (
-              <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
-                <thead>
-                  <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
-                    <th scope="col" className="w-auto py-2 pr-2 font-medium">
-                      Item
-                    </th>
-                    <th scope="col" className="w-12 py-2 px-2 text-right font-medium">
-                      Units
-                    </th>
-                    <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
-                      Per unit
-                    </th>
-                    <th scope="col" className="w-20 py-2 pl-2 text-right font-medium">
-                      Line total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr
-                      key={r.itemId}
-                      className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
-                    >
-                      <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
-                        {r.name}
-                      </td>
-                      <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
-                        {formatUnits(r.units)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
-                        ${r.perUnitValue.toFixed(2)}
-                      </td>
-                      <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
-                        ${r.lineTotal.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <BreakdownTable rows={rows} />
             )}
           </CardContent>
         </Card>
@@ -306,4 +317,131 @@ export default async function HistoryDetailPage({ params }: PageProps) {
       </div>
     </main>
   );
+}
+
+// Phase 7: pulled out of the JSX so grouped + flat renders share the
+// same table markup. Rendering one table per group keeps the visual
+// rhythm consistent with the existing design.
+function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
+  return (
+    <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
+      <thead>
+        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
+          <th scope="col" className="w-auto py-2 pr-2 font-medium">
+            Item
+          </th>
+          <th scope="col" className="w-12 py-2 px-2 text-right font-medium">
+            Units
+          </th>
+          <th scope="col" className="w-16 py-2 px-2 text-right font-medium">
+            Per unit
+          </th>
+          <th scope="col" className="w-20 py-2 pl-2 text-right font-medium">
+            Line total
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr
+            key={`${r.itemId}-${i}`}
+            className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+          >
+            <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
+              {r.name}
+            </td>
+            <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
+              {formatUnits(r.units)}
+            </td>
+            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+              ${r.perUnitValue.toFixed(2)}
+            </td>
+            <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
+              ${r.lineTotal.toFixed(2)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Phase 7: build per-user groups from `row.eaten`. Each entry carries
+// `userId` (stamped by finalizeSharedSession). Entries without a
+// userId — e.g. on a legacy shared session finalized before Phase 7 —
+// fall into a single "Unattributed" group so nothing disappears.
+//
+// Display names come from the SECURITY DEFINER RPC added in 0006, which
+// joins auth.users on user_id and returns the email local-part. The
+// RPC is gated on session membership, so non-members cannot enumerate
+// other users' emails via /history/[id] either.
+async function buildUserGroups(
+  row: DetailRow,
+  itemsById: Map<ItemId, Item>,
+  supabase: SupabaseClient<Database>,
+): Promise<UserGroup[]> {
+  const namesResult = await supabase.rpc(
+    "get_shared_session_collaborator_names",
+    { p_session_id: row.client_session_id },
+  );
+  const nameByUserId = new Map<string, string>();
+  // An RPC error here isn't fatal — the grouped UI degrades to the
+  // shortUserId fallback (uuid first-8) so the page still renders. We
+  // log it instead of throwing so /history/[id] never 500s on a stale
+  // contributors jsonb.
+  if (namesResult.error) {
+    console.warn(
+      "get_shared_session_collaborator_names failed; falling back to short ids",
+      namesResult.error,
+    );
+  }
+  for (const r of namesResult.data ?? []) {
+    nameByUserId.set(r.user_id, r.display_name);
+  }
+
+  // Partition entries by userId. Order of first appearance is preserved
+  // so the groups render consistently across polls/reloads.
+  const entriesByUser = new Map<string, EatenEntry[]>();
+  for (const entry of row.eaten) {
+    const key = entry.userId ?? UNATTRIBUTED_USER_ID;
+    const list = entriesByUser.get(key) ?? [];
+    list.push(entry);
+    entriesByUser.set(key, list);
+  }
+
+  const groups: UserGroup[] = [];
+  for (const [userId, entries] of entriesByUser) {
+    const groupRows: BreakdownRow[] = [];
+    for (const entry of entries) {
+      const item = itemsById.get(entry.itemId);
+      if (!item) continue;
+      groupRows.push({
+        itemId: entry.itemId,
+        name: item.name,
+        units: entry.units,
+        perUnitValue: item.alaCarteValue,
+        lineTotal: item.alaCarteValue * entry.units,
+      });
+    }
+    const { total } = computeTotals(row.library, entries, 0);
+    groups.push({
+      userId,
+      displayName:
+        userId === UNATTRIBUTED_USER_ID
+          ? "Unattributed"
+          : (nameByUserId.get(userId) ?? shortUserId(userId)),
+      rows: groupRows,
+      subtotal: total,
+    });
+  }
+
+  // Push "Unattributed" to the end; everyone else sorted by display
+  // name so the rendered order is stable and predictable.
+  groups.sort((a, b) => {
+    if (a.userId === UNATTRIBUTED_USER_ID) return 1;
+    if (b.userId === UNATTRIBUTED_USER_ID) return -1;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  return groups;
 }

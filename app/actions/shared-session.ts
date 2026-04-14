@@ -3,9 +3,15 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { requireUser } from "@/lib/auth/require-user";
 import { computeTotals } from "@/lib/calc";
+import {
+  generateInviteToken,
+  getClientIpFromHeaders,
+  rateLimitInviteJoin,
+} from "@/lib/invite";
 import type { Database } from "@/lib/supabase/database.types";
 import type {
   EatenEntry,
@@ -667,10 +673,15 @@ export async function finalizeSharedSession(
     sourceRef: r.source_ref ?? undefined,
   }));
 
+  // Phase 7: preserve user_id on each entry so /history/[id] can group
+  // the breakdown by collaborator. Solo sessions (via other actions)
+  // continue to omit `userId` — the `session_records.contributors`
+  // array's emptiness is the grouping gate, so absent userId is safe.
   const eaten: EatenEntry[] = entriesRes.data.map((e) => ({
     itemId: e.item_id,
     units: Number(e.units),
     grams: e.grams === null ? undefined : Number(e.grams),
+    userId: e.user_id,
   }));
 
   const { total, margin, won } = computeTotals(
@@ -779,4 +790,297 @@ export async function finalizeSharedSession(
   revalidatePath(`/result?session=${session.id}`);
 
   return { ok: true, data: { id: record.id } };
+}
+
+// ===========================================================================
+// Phase 7 — Invite / join flow.
+//
+// Three owner-side actions (createInvite, revokeInvite, listActiveInvites)
+// and one invitee-side action (joinSharedSession). The token is an opaque
+// DB lookup key; redemption is an atomic SECURITY DEFINER RPC
+// (`redeem_session_invite`, defined in 0006_session_invites.sql) that
+// validates expiry + used_at + session.finished_at, inserts the
+// collaborator row, and stamps used_at all in one function call.
+//
+// Threat model lives in the PR description. Invariants enforced here:
+//   #14  — user_id server-derived everywhere; never trusted from client
+//   #15  — token is 128-bit CSPRNG, revocable, 24h expiry, opaque
+//   #16  — dual-path invariant preserved — the join flow writes to
+//          shared_session_collaborators, which the tracker/library
+//          already read through useSharedSession
+// ===========================================================================
+
+const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{22}$/;
+const INVITE_EXPIRY_MS = 24 * 60 * 60_000; // 24h
+
+export interface InviteRow {
+  id: string;
+  sessionId: SharedSessionId;
+  token: string;
+  expiresAt: string; // ISO
+  createdAt: string; // ISO
+}
+
+// ---------------------------------------------------------------------------
+// createInvite — owner-only. Mints a fresh token with a 24h expiry and
+// returns the row's public fields so the share drawer can assemble the
+// join URL: `${origin}/join?token=${token}`.
+//
+// RLS on `session_invites` already enforces:
+//   WITH CHECK (auth.uid() = created_by AND is_shared_session_owner(...))
+// which is the primary access control. The server action still does a
+// pre-insert owner lookup so a non-owner caller gets a clean 'not_owner'
+// error instead of the opaque RLS-rejection code.
+// ---------------------------------------------------------------------------
+export async function createInvite(
+  sessionId: SharedSessionId,
+): Promise<ActionResult<InviteRow>> {
+  const { user, supabase } = await requireUser();
+
+  if (!isValidUuid(sessionId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  // Owner + not-finalized guard. RLS would block a non-owner at insert
+  // time, but short-circuiting with a clear error is friendlier.
+  const { data: session, error: sessionError } = await supabase
+    .from("shared_sessions")
+    .select("owner_user_id, finished_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionError) return { ok: false, error: "session_lookup_failed" };
+  if (!session) return { ok: false, error: "not_found" };
+  if (session.owner_user_id !== user.id) {
+    return { ok: false, error: "not_owner" };
+  }
+  if (session.finished_at !== null) {
+    return { ok: false, error: "already_finalized" };
+  }
+
+  const token = generateInviteToken();
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_MS).toISOString();
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("session_invites")
+    .insert({
+      session_id: sessionId,
+      token,
+      expires_at: expiresAt,
+      created_by: user.id, // RLS WITH CHECK also asserts this equals auth.uid()
+    })
+    .select("id, session_id, token, expires_at, created_at")
+    .single();
+
+  if (insertError || !inserted) {
+    return { ok: false, error: "invite_insert_failed" };
+  }
+
+  return {
+    ok: true,
+    data: {
+      id: inserted.id,
+      sessionId: inserted.session_id,
+      token: inserted.token,
+      expiresAt: inserted.expires_at,
+      createdAt: inserted.created_at,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// listActiveInvites — owner-only. Returns invites that are still
+// redeemable (not used AND not expired). Used by the share drawer to
+// render the revoke-all count and roster.
+// ---------------------------------------------------------------------------
+export async function listActiveInvites(
+  sessionId: SharedSessionId,
+): Promise<ActionResult<InviteRow[]>> {
+  const { user, supabase } = await requireUser();
+
+  if (!isValidUuid(sessionId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const { data: session, error: sessionError } = await supabase
+    .from("shared_sessions")
+    .select("owner_user_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionError) return { ok: false, error: "session_lookup_failed" };
+  if (!session) return { ok: false, error: "not_found" };
+  if (session.owner_user_id !== user.id) {
+    return { ok: false, error: "not_owner" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("session_invites")
+    .select("id, session_id, token, expires_at, created_at")
+    .eq("session_id", sessionId)
+    .is("used_at", null)
+    .gt("expires_at", nowIso)
+    .order("created_at", { ascending: false });
+
+  if (error) return { ok: false, error: "invite_lookup_failed" };
+
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => ({
+      id: r.id,
+      sessionId: r.session_id,
+      token: r.token,
+      expiresAt: r.expires_at,
+      createdAt: r.created_at,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// revokeInvite — owner-only. Soft-delete by stamping used_at. RLS
+// enforces owner-only UPDATE, so a non-owner update is blocked by
+// postgres regardless of what this server action does.
+// ---------------------------------------------------------------------------
+export async function revokeInvite(
+  inviteId: string,
+): Promise<ActionResult<{ ok: true }>> {
+  const { supabase } = await requireUser();
+
+  if (!isValidUuid(inviteId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  // Only update rows that haven't already been marked used, so a retry
+  // doesn't clobber the first-used timestamp (preserves audit trail).
+  const { data, error } = await supabase
+    .from("session_invites")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", inviteId)
+    .is("used_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { ok: false, error: "invite_update_failed" };
+  // `data` is null when RLS filtered the row out (non-owner) OR when
+  // the invite was already used/revoked. Both surface as not_found —
+  // we don't leak the distinction.
+  if (!data) return { ok: false, error: "not_found" };
+
+  return { ok: true, data: { ok: true } };
+}
+
+// ---------------------------------------------------------------------------
+// joinSharedSession — authenticated invitee-side redemption. Validates
+// the token format, rate-limits by IP (10/hr), and calls the SECURITY
+// DEFINER RPC that atomically validates + inserts collaborator + stamps
+// used_at. Error codes match the plan (invite_expired / invite_already_used
+// / session_finalized / rate_limited).
+// ---------------------------------------------------------------------------
+export type JoinSharedSessionError =
+  | "invalid_input"
+  | "rate_limited"
+  | "invite_not_found"
+  | "invite_expired"
+  | "invite_already_used"
+  | "session_finalized"
+  | "join_failed";
+
+// ---------------------------------------------------------------------------
+// listCollaboratorNames — exposes display names (email local-part) for every
+// collaborator on a shared session via the SECURITY DEFINER RPC from 0006.
+// The RPC gates access by membership, so non-collaborators get an empty
+// list. Used by the tracker header to render "Eating with: Alice, Bob, You".
+// ---------------------------------------------------------------------------
+export interface CollaboratorName {
+  userId: string;
+  displayName: string;
+}
+
+export async function listCollaboratorNames(
+  sessionId: SharedSessionId,
+): Promise<ActionResult<CollaboratorName[]>> {
+  const { supabase } = await requireUser();
+
+  if (!isValidUuid(sessionId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const { data, error } = await supabase.rpc(
+    "get_shared_session_collaborator_names",
+    { p_session_id: sessionId },
+  );
+
+  if (error) return { ok: false, error: "lookup_failed" };
+
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+    })),
+  };
+}
+
+export async function joinSharedSession(
+  token: string,
+): Promise<ActionResult<{ sessionId: SharedSessionId }>> {
+  // Require the user BEFORE the token-shape check so an unauthenticated
+  // caller gets redirected to /login first (requireUser() throws via
+  // redirect). Rate limit *after* requireUser so anonymous probing
+  // doesn't count against the bucket.
+  const { user, supabase } = await requireUser();
+
+  if (typeof token !== "string" || !INVITE_TOKEN_RE.test(token)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  // Composite `ip:userId` rate limit. Per security review T5(c), an
+  // attacker rotating IPs at will could otherwise bypass the per-IP
+  // cap; adding the user id to the bucket key forces per-account
+  // throttling independently of network.
+  const h = await headers();
+  const ip = getClientIpFromHeaders(h);
+  const rl = rateLimitInviteJoin(ip, user.id);
+  if (!rl.ok) return { ok: false, error: "rate_limited" };
+
+  // RPC bypasses RLS on the collaborator + invite writes by design (see
+  // 0006_session_invites.sql). The function returns jsonb — supabase-js
+  // surfaces it as `data`.
+  const { data, error } = await supabase.rpc("redeem_session_invite", {
+    p_token: token,
+  });
+
+  if (error) return { ok: false, error: "join_failed" };
+
+  // Defensive: narrow the jsonb. Postgres function returns
+  // `{ error: string | null, session_id?: string }`.
+  const payload = (data ?? {}) as { error?: string | null; session_id?: string };
+  if (payload.error) {
+    // Map known error strings to our ActionResult codes; anything
+    // unexpected collapses to join_failed so callers don't have to
+    // enumerate DB-internal strings.
+    switch (payload.error) {
+      case "invite_not_found":
+      case "invite_expired":
+      case "invite_already_used":
+      case "session_finalized":
+        return { ok: false, error: payload.error };
+      default:
+        return { ok: false, error: "join_failed" };
+    }
+  }
+
+  if (!payload.session_id || !isValidUuid(payload.session_id)) {
+    return { ok: false, error: "join_failed" };
+  }
+
+  const sessionId = payload.session_id as SharedSessionId;
+
+  // The collaborator row just landed; nudge downstream pages so the next
+  // render/poll picks it up.
+  revalidatePath(`/tracker?session=${sessionId}`);
+  revalidatePath(`/library?session=${sessionId}`);
+
+  return { ok: true, data: { sessionId } };
 }
