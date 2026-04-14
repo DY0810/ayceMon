@@ -125,3 +125,74 @@ export interface RestaurantStats {
   totalMargin: number;
   lastVisitedAt: string; // ISO
 }
+
+// ---------------------------------------------------------------------------
+// collab-and-quantitative-appetite plan, Phase 6 — shared-session model.
+//
+// These types describe rows in the four `shared_*` tables (see
+// supabase/migrations/0005_shared_sessions.sql). They are the server-backed
+// equivalent of the Zustand `Session` above, but spread across per-row
+// records so multiple users can write to the same session concurrently.
+//
+// On finalize, a shared session aggregates into exactly one `session_records`
+// row. The `session_records.contributors` jsonb column holds the per-user
+// attribution snapshot described by `SessionContributor` below.
+// ---------------------------------------------------------------------------
+
+export type SharedSessionId = string;
+
+export type SharedSessionRole = "owner" | "collaborator";
+
+export interface SharedSession {
+  id: SharedSessionId;
+  ownerUserId: UserId;
+  restaurantId: RestaurantId | null;
+  restaurantName: string | null;
+  buffetPrice: number;
+  appetiteBudget: number | null;
+  appetiteBudgetGrams: number | null;
+  cityTier: CityTier | null;
+  resolvedPlace: ResolvedPlace | null;
+  startedAt: string; // ISO
+  finishedAt: string | null; // ISO, null while the session is active
+  createdAt: string; // ISO
+}
+
+export interface SharedSessionItem {
+  sessionId: SharedSessionId;
+  id: ItemId;
+  name: string;
+  alaCarteValue: number;
+  fillFactor: number;
+  gramsPerUnit: number | null;
+  category: string | null;
+  sourceKind: PriceSource | null;
+  sourceRef: string | null;
+}
+
+export interface SharedSessionCollaborator {
+  sessionId: SharedSessionId;
+  userId: UserId;
+  role: SharedSessionRole;
+  joinedAt: string; // ISO
+}
+
+export interface SharedSessionEntry {
+  id: string; // surrogate uuid
+  sessionId: SharedSessionId;
+  userId: UserId;
+  itemId: ItemId;
+  units: number;
+  grams: number | null;
+  loggedAt: string; // ISO
+}
+
+/** Per-user attribution snapshot persisted on `session_records.contributors`.
+ *  Recomputed at finalize time from the aggregated entries; never updated
+ *  after the session_records row lands. */
+export interface SessionContributor {
+  userId: UserId;
+  units: number; // total units logged by this user
+  grams: number; // total grams logged by this user (null entries + unit×gpu)
+  valueEaten: number; // total à-la-carte value attributed to this user
+}
