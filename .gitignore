@@ -48,5 +48,8 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
+# Supabase CLI cache (pooler URL, project ref)
+supabase/.temp/
+
 # Claude Code local settings (per-machine permission allowlist)
 .claude/settings.local.json
