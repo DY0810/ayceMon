@@ -144,12 +144,15 @@ export default function TrackerPage() {
 
   // Redirect guard: no session → /setup. Wait for hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
-  // In shared mode we wait until the first poll resolves — shared.loading
-  // prevents bouncing while the session row is being fetched.
+  // In shared mode we only redirect on an explicit "not_found" error from
+  // the polling endpoint — relying on `!shared.loading` would race the
+  // hydration→fetch transition (useState-based `loading` starts `false`
+  // when sharedSessionId was null at mount time, which is exactly the
+  // post-goto hard-nav path).
   useEffect(() => {
     if (!hasHydrated) return;
     if (sharedSessionId) {
-      if (!shared.loading && shared.session === null) {
+      if (shared.error === "not_found") {
         router.replace("/setup");
       }
       return;
@@ -157,7 +160,7 @@ export default function TrackerPage() {
     if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, sharedSessionId, shared.loading, shared.session, router]);
+  }, [hasHydrated, session, sharedSessionId, shared.error, router]);
 
   const totals = useMemo(() => {
     if (!session) {

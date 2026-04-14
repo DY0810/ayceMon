@@ -76,12 +76,20 @@ test.describe("shared session invite flow", () => {
     await ownerPage.getByRole("button", { name: /invite/i }).click();
     await ownerPage.getByRole("button", { name: "Start session" }).click();
 
-    await expect(ownerPage).toHaveURL(/\/library$/);
+    // Invite mode routes to /library?session=<id>; the $ anchor from the
+    // solo path would fail here. Accept the optional query string.
+    await expect(ownerPage).toHaveURL(/\/library(?:\?|$)/);
     await addManualLibraryItem(ownerPage, {
       name: "shared sashimi",
       value: "14",
       grams: 40,
     });
+    // Confirm the item landed in the library before navigating to /tracker —
+    // otherwise a late addSharedLibraryItem response races the goto and the
+    // tracker renders an empty library (no Finish button, no item cards).
+    await expect(
+      ownerPage.getByRole("button", { name: "Remove shared sashimi" }),
+    ).toBeVisible({ timeout: 10_000 });
 
     // --------------------------------------------------------------------
     // 2. Owner opens Share drawer on /tracker and copies the invite link.
@@ -89,7 +97,7 @@ test.describe("shared session invite flow", () => {
     await ownerPage.goto("/tracker");
     await expect(
       ownerPage.getByRole("button", { name: "Finish meal" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
 
     // Grant clipboard permission so navigator.clipboard.readText works.
     await ownerContext.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -104,12 +112,26 @@ test.describe("shared session invite flow", () => {
       name: /copy (invite )?link/i,
     });
     await expect(copyButton).toBeVisible();
+
+    // Snapshot the drawer for the README. Only capture when explicitly
+    // requested (SNAPSHOT_SHARE_DRAWER=1) so CI runs stay deterministic.
+    if (process.env.SNAPSHOT_SHARE_DRAWER === "1") {
+      await ownerPage.screenshot({
+        path: "docs/screenshots/share-drawer.png",
+        fullPage: false,
+      });
+    }
+
     await copyButton.click();
 
     const joinUrl = await ownerPage.evaluate(() =>
       navigator.clipboard.readText(),
     );
     expect(joinUrl).toMatch(/\/join\?token=[A-Za-z0-9_-]{22}$/);
+
+    // Close the share drawer so the tracker item controls are reachable
+    // again. The drawer covers the ItemCard + "Finish meal" area.
+    await ownerPage.getByRole("button", { name: "Close" }).click();
 
     // --------------------------------------------------------------------
     // 3. Invitee (separate context) signs in, visits the invite URL, and
