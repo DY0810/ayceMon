@@ -36,6 +36,7 @@ export default function TrackerPage() {
   const soloLogEaten = useAyceStore((state) => state.logEaten);
   const finishMeal = useAyceStore((state) => state.finishMeal);
   const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+  const setSharedSessionId = useAyceStore((state) => state.setSharedSessionId);
 
   const shared = useSharedSession(sharedSessionId);
   const session = sharedSessionId ? shared.session : soloSession;
@@ -149,10 +150,19 @@ export default function TrackerPage() {
   // hydration→fetch transition (useState-based `loading` starts `false`
   // when sharedSessionId was null at mount time, which is exactly the
   // post-goto hard-nav path).
+  //
+  // When not_found fires, clear `sharedSessionId` from Zustand. Without
+  // this, /setup's arrival gate (post-plan 2026-04-14) sees the stale id
+  // and bounces the user right back to /tracker — an infinite loop.
+  // Reconciling local state with server truth is the responsibility of
+  // the guards that detect the divergence. useSharedSession already
+  // retries once on a 404 to absorb transient auth-cookie refresh races,
+  // so reaching this branch means the session is gone.
   useEffect(() => {
     if (!hasHydrated) return;
     if (sharedSessionId) {
       if (shared.error === "not_found") {
+        setSharedSessionId(null);
         router.replace("/setup");
       }
       return;
@@ -160,7 +170,14 @@ export default function TrackerPage() {
     if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, sharedSessionId, shared.error, router]);
+  }, [
+    hasHydrated,
+    session,
+    sharedSessionId,
+    shared.error,
+    setSharedSessionId,
+    router,
+  ]);
 
   const totals = useMemo(() => {
     if (!session) {

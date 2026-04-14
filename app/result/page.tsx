@@ -56,6 +56,7 @@ export default function ResultPage() {
   const endSession = useAyceStore((state) => state.endSession);
   const resumeMeal = useAyceStore((state) => state.resumeMeal);
   const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+  const setSharedSessionId = useAyceStore((state) => state.setSharedSessionId);
   const setSharedSessionFinishedAt = useAyceStore(
     (state) => state.setSharedSessionFinishedAt,
   );
@@ -86,6 +87,15 @@ export default function ResultPage() {
     if (sharedSessionId) {
       if (shared.loading && sharedSession === null) return;
       if (sharedSession === null) {
+        // Initial load completed with no session. The hook already
+        // retried once on 404 (see lib/use-shared-session.ts), so we're
+        // past the transient-auth race window — treat this as a stale
+        // sharedSessionId and clear it. Without the clear, /setup's
+        // arrival gate would bounce us right back to /tracker, which
+        // would bounce right back here → infinite loop.
+        if (shared.error === "not_found") {
+          setSharedSessionId(null);
+        }
         router.replace("/setup");
         return;
       }
@@ -105,8 +115,10 @@ export default function ResultPage() {
     hasHydrated,
     sharedSessionId,
     shared.loading,
+    shared.error,
     sharedSession,
     soloSession,
+    setSharedSessionId,
     router,
   ]);
 
