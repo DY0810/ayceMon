@@ -29,13 +29,39 @@ interface Requirement {
 
 const REQUIREMENTS: readonly Requirement[] = [
   { icon: DollarSign, label: "The buffet price" },
-  { icon: Utensils, label: "A rough appetite (fill units)" },
+  { icon: Utensils, label: "A rough appetite (grams of food)" },
   { icon: List, label: "Items you plan to eat" },
 ] as const;
 
+// Phase 2 (collab-and-quantitative-appetite): mass-budget presets are
+// anchored to Geliebter 1988 gastric-capacity data. See
+// docs/quantitative-appetite.md for provenance.
+interface BudgetPreset {
+  readonly value: number;
+  readonly label: string;
+  readonly subtitle: string;
+}
+
+const BUDGET_PRESETS: readonly BudgetPreset[] = [
+  { value: 800, label: "Light", subtitle: "800 g" },
+  { value: 1200, label: "Typical", subtitle: "1200 g" },
+  { value: 1800, label: "Big", subtitle: "1800 g" },
+  { value: 2500, label: "Competitive", subtitle: "2500 g" },
+] as const;
+
+const DEFAULT_PRESET = 1200;
+
+// Legacy appetiteBudget (1–100 int). The DB still CHECKs the column is
+// in [1, 100] (migration 0001), so every write sends a clamped value
+// regardless of the grams path. Phase 2 of the plan forbids deriving
+// this from grams — we always write the median (50) for back-compat.
+const LEGACY_APPETITE_BUDGET_FALLBACK = 50;
+
+type BudgetMode = "preset" | "custom" | "skipped";
+
 interface FormErrors {
   buffetPrice?: string;
-  appetiteBudget?: string;
+  customBudgetGrams?: string;
 }
 
 export default function SetupPage() {
@@ -47,10 +73,21 @@ export default function SetupPage() {
   );
   const [manualName, setManualName] = useState("");
   const [buffetPrice, setBuffetPrice] = useState("");
-  const [appetiteBudget, setAppetiteBudget] = useState("30");
+  const [budgetMode, setBudgetMode] = useState<BudgetMode>("preset");
+  const [presetGrams, setPresetGrams] = useState<number>(DEFAULT_PRESET);
+  const [customGrams, setCustomGrams] = useState("");
   const [cityTier, setCityTier] = useState<CityTier>("metro-standard");
   const [errors, setErrors] = useState<FormErrors>({});
   const [resolving, setResolving] = useState(false);
+
+  function resolveBudgetGrams(): number | null {
+    if (budgetMode === "skipped") return null;
+    if (budgetMode === "custom") {
+      const n = Number(customGrams);
+      return Number.isFinite(n) ? n : Number.NaN;
+    }
+    return presetGrams;
+  }
 
   function validate(): FormErrors {
     const next: FormErrors = {};
@@ -60,13 +97,39 @@ export default function SetupPage() {
     } else if (price < 0) {
       next.buffetPrice = "Price can't be negative.";
     }
-    const budget = Number(appetiteBudget);
-    if (appetiteBudget.trim() === "" || Number.isNaN(budget)) {
-      next.appetiteBudget = "Enter an appetite budget.";
-    } else if (budget < 1 || budget > 100) {
-      next.appetiteBudget = "Pick a number between 1 and 100.";
+    if (budgetMode === "custom") {
+      const grams = Number(customGrams);
+      if (customGrams.trim() === "" || Number.isNaN(grams)) {
+        next.customBudgetGrams = "Enter grams of food you can eat.";
+      } else if (grams < 50 || grams > 10000) {
+        // Matches the 0004 migration CHECK range (50–10000 g).
+        next.customBudgetGrams = "Pick a number between 50 and 10000.";
+      }
     }
     return next;
+  }
+
+  function handlePresetClick(value: number) {
+    setBudgetMode("preset");
+    setPresetGrams(value);
+    setCustomGrams("");
+    setErrors((prev) => ({ ...prev, customBudgetGrams: undefined }));
+  }
+
+  function handleCustomChange(next: string) {
+    setBudgetMode("custom");
+    setCustomGrams(next);
+  }
+
+  function handleSkipToggle() {
+    if (budgetMode === "skipped") {
+      setBudgetMode("preset");
+      setPresetGrams(DEFAULT_PRESET);
+    } else {
+      setBudgetMode("skipped");
+      setCustomGrams("");
+      setErrors((prev) => ({ ...prev, customBudgetGrams: undefined }));
+    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -76,15 +139,26 @@ export default function SetupPage() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     const derivedName = resolvedPlace?.name ?? manualName.trim();
+    const gramsValue = resolveBudgetGrams();
     startSession({
       restaurantName: derivedName || undefined,
       buffetPrice: Number(buffetPrice),
-      appetiteBudget: Number(appetiteBudget),
+      // Legacy column is still DB-CHECK'd to [1, 100]. Always write the
+      // median — the plan forbids deriving this from grams.
+      appetiteBudget: LEGACY_APPETITE_BUDGET_FALLBACK,
+      appetiteBudgetGrams: gramsValue,
       cityTier,
       resolvedPlace,
     });
     router.push("/library");
   }
+
+  const selectedGrams =
+    budgetMode === "skipped"
+      ? null
+      : budgetMode === "custom"
+        ? Number(customGrams) || null
+        : presetGrams;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
@@ -200,49 +274,114 @@ export default function SetupPage() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="appetite-budget"
-                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
-              >
-                Appetite budget
-              </label>
-              <Input
-                id="appetite-budget"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={100}
-                step={1}
-                placeholder="30"
-                value={appetiteBudget}
-                onChange={(e) => setAppetiteBudget(e.target.value)}
-                onBlur={() => setErrors(validate())}
-                aria-invalid={errors.appetiteBudget ? true : undefined}
-                aria-describedby={
-                  errors.appetiteBudget
-                    ? "appetite-budget-error"
-                    : "appetite-budget-help"
-                }
-                required
-              />
-              {errors.appetiteBudget ? (
-                <p
-                  id="appetite-budget-error"
-                  role="alert"
-                  className="text-sm text-[#e23b4a]"
+            <fieldset className="flex flex-col gap-3">
+              <legend className="mb-1 flex w-full items-center justify-between text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+                <span>Appetite budget</span>
+                <button
+                  type="button"
+                  onClick={handleSkipToggle}
+                  aria-pressed={budgetMode === "skipped"}
+                  className="text-xs font-normal tracking-[0.01em] text-[#505a63] underline-offset-4 hover:underline aria-pressed:font-medium aria-pressed:text-[#191c1f] dark:text-[#8d969e] dark:aria-pressed:text-white"
                 >
-                  {errors.appetiteBudget}
+                  {budgetMode === "skipped"
+                    ? "Pick a budget"
+                    : "Skip, I'll eyeball it"}
+                </button>
+              </legend>
+
+              <div
+                role="group"
+                aria-label="Preset grams budget"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+              >
+                {BUDGET_PRESETS.map((preset) => {
+                  const isSelected =
+                    budgetMode === "preset" && presetGrams === preset.value;
+                  return (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => handlePresetClick(preset.value)}
+                      aria-pressed={isSelected}
+                      disabled={budgetMode === "skipped"}
+                      className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-[rgba(25,28,31,0.12)] bg-white text-[#191c1f] hover:bg-[#f4f4f4] aria-pressed:border-[#191c1f] aria-pressed:bg-[#191c1f] aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-[#262a2e] dark:aria-pressed:border-white dark:aria-pressed:bg-white dark:aria-pressed:text-[#191c1f]"
+                    >
+                      <span className="text-sm font-medium leading-tight">
+                        {preset.label}
+                      </span>
+                      <span className="text-xs tabular-nums opacity-80">
+                        {preset.subtitle}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {budgetMode === "skipped" ? (
+                <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                  No budget target. We&apos;ll show grams consumed without a
+                  denominator.
                 </p>
               ) : (
-                <p
-                  id="appetite-budget-help"
-                  className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
-                >
-                  Total fill units you can stomach. Higher = hungrier.
-                </p>
+                <>
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="custom-grams"
+                      className="shrink-0 text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                    >
+                      Or custom
+                    </label>
+                    <div className="relative flex-1">
+                      <Input
+                        id="custom-grams"
+                        type="number"
+                        inputMode="numeric"
+                        min={50}
+                        max={10000}
+                        step={50}
+                        placeholder="e.g. 1500"
+                        value={customGrams}
+                        onChange={(e) => handleCustomChange(e.target.value)}
+                        onBlur={() => setErrors(validate())}
+                        aria-invalid={
+                          errors.customBudgetGrams ? true : undefined
+                        }
+                        aria-describedby={
+                          errors.customBudgetGrams
+                            ? "custom-grams-error"
+                            : "custom-grams-help"
+                        }
+                        className="pr-10"
+                      />
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-[#505a63] dark:text-[#8d969e]"
+                      >
+                        g
+                      </span>
+                    </div>
+                  </div>
+                  {errors.customBudgetGrams ? (
+                    <p
+                      id="custom-grams-error"
+                      role="alert"
+                      className="text-sm text-[#e23b4a]"
+                    >
+                      {errors.customBudgetGrams}
+                    </p>
+                  ) : (
+                    <p
+                      id="custom-grams-help"
+                      className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                    >
+                      {selectedGrams === null
+                        ? "Pick a preset or type your own in grams."
+                        : `Target ${selectedGrams} g of food mass. Comfort ceiling, not a hard cap.`}
+                    </p>
+                  )}
+                </>
               )}
-            </div>
+            </fieldset>
 
             <Button type="submit" size="lg" className="mt-2 w-full" disabled={resolving}>
               {resolving ? "Loading restaurant…" : "Start session"}
