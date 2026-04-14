@@ -251,9 +251,11 @@ export default function TrackerPage() {
     if (finishPending) return;
 
     // Shared-session (Phase 6): finalize via the owner-only server action,
-    // route to /history/[id]. Collaborators can't finalize — the server
-    // action returns "not_owner". We surface that as an error without
-    // locking up the UI.
+    // then route to /result for the celebratory "did you win" view. The
+    // historical record lives at /history/[id] and is reachable from the
+    // History tab; finishing shouldn't skip past the result screen.
+    // Collaborators can't finalize — the server action returns "not_owner".
+    // We surface that as an error without locking up the UI.
     if (sharedSessionId) {
       setFinishPending(true);
       setFinishError(null);
@@ -268,7 +270,7 @@ export default function TrackerPage() {
         return;
       }
       finishMeal();
-      router.push(`/history/${result.data.id}`);
+      router.push("/result");
       return;
     }
 
@@ -305,10 +307,12 @@ export default function TrackerPage() {
       return;
     }
     // Mark the draft as finished (matches the guest flow) and navigate to
-    // the persisted detail page. The session lingers in the store with
+    // /result for the celebratory view. The persisted detail page at
+    // /history/[id] is reachable from the History tab; finishing shouldn't
+    // skip past the result screen. The session lingers in the store with
     // finishedAt set; a future /setup submit overwrites it via startSession.
     finishMeal();
-    router.push(`/history/${result.id}`);
+    router.push("/result");
   }
 
   return (
