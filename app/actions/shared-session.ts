@@ -423,7 +423,10 @@ export async function updateSharedSession(
 }
 
 // ---------------------------------------------------------------------------
-// addSharedLibraryItem — owner-only. Adds/overwrites a library entry.
+// addSharedLibraryItem — any collaborator (owner included). Adds or
+// overwrites a library entry. RLS on shared_session_items was relaxed in
+// migration 0007 so friends can contribute their own picks to the shared
+// library, not just the session owner.
 // ---------------------------------------------------------------------------
 export interface AddSharedLibraryItemInput {
   sessionId: SharedSessionId;
@@ -495,7 +498,8 @@ export async function addSharedLibraryItem(
 }
 
 // ---------------------------------------------------------------------------
-// removeSharedLibraryItem — owner-only. Cascades to entries via FK.
+// removeSharedLibraryItem — any collaborator (owner included). Cascades
+// to entries via FK. See migration 0007 for the RLS relaxation.
 // ---------------------------------------------------------------------------
 export interface RemoveSharedLibraryItemInput {
   sessionId: SharedSessionId;
