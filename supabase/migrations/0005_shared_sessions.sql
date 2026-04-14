@@ -116,6 +116,10 @@ create index if not exists shared_session_entries_session_idx
   on public.shared_session_entries(session_id);
 create index if not exists shared_session_entries_user_session_idx
   on public.shared_session_entries(user_id, session_id);
+-- Covers the finalize aggregation + per-item tally in useSharedSession,
+-- both of which scan `where session_id = $1` and group by item_id.
+create index if not exists shared_session_entries_session_item_idx
+  on public.shared_session_entries(session_id, item_id);
 
 -- ---------------------------------------------------------------------------
 -- session_records.contributors — per-user attribution baked into the

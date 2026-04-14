@@ -98,10 +98,15 @@ export default function SetupPage() {
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (cancelled) return;
-      setAuthUser(data.user ? { id: data.user.id } : false);
-    });
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setAuthUser(data.user ? { id: data.user.id } : false);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthUser(false);
+      });
     const { data: sub } = supabase.auth.onAuthStateChange((_ev, ses) => {
       setAuthUser(ses?.user ? { id: ses.user.id } : false);
     });
@@ -188,6 +193,10 @@ export default function SetupPage() {
           appetiteBudgetGrams: gramsValue,
           cityTier,
           restaurantName: derivedName || null,
+          // Pass the resolved Place through so collaborators see the same
+          // restaurant context. Server validates field-by-field and only
+          // trusts googlePlaceId — the rest is display-only jsonb.
+          resolvedPlace: resolvedPlace ?? null,
           startedAt: new Date().toISOString(),
         });
         if (!result.ok) {

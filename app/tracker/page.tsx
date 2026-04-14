@@ -33,6 +33,13 @@ export default function TrackerPage() {
 
   const shared = useSharedSession(sharedSessionId);
   const session = sharedSessionId ? shared.session : soloSession;
+  // Destructure `refresh` before using it in useCallback deps. `shared`
+  // itself is a new object reference each render (inline construction in
+  // useSharedSession), so depending on it would defeat memoization.
+  // `refresh` is itself stable — it's produced by useCallback in the hook.
+  const refreshShared = shared.refresh;
+
+  const [logError, setLogError] = useState<string | null>(null);
 
   const logEaten = useCallback(
     (itemId: ItemId, units: number, grams?: number) => {
@@ -45,11 +52,18 @@ export default function TrackerPage() {
       // `units` may be negative for −1 buttons — RLS/check allows it only
       // through a delete path, so we block negatives at the UI layer.
       if (units <= 0) return;
+      setLogError(null);
       void logSharedEaten({ sessionId: sharedSessionId, itemId, units, grams })
-        .then(() => shared.refresh())
-        .catch(() => void 0);
+        .then((result) => {
+          if (!result.ok) {
+            setLogError("Could not save that bite. Try again.");
+            return;
+          }
+          return refreshShared();
+        })
+        .catch(() => setLogError("Could not save that bite. Try again."));
     },
-    [sharedSessionId, soloLogEaten, shared],
+    [sharedSessionId, soloLogEaten, refreshShared],
   );
 
   // Track the current auth state so the finish handler can branch between
@@ -60,10 +74,15 @@ export default function TrackerPage() {
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (cancelled) return;
-      setAuthUser(data.user ? { id: data.user.id } : false);
-    });
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setAuthUser(data.user ? { id: data.user.id } : false);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthUser(false);
+      });
     const { data: sub } = supabase.auth.onAuthStateChange((_ev, ses) => {
       setAuthUser(ses?.user ? { id: ses.user.id } : false);
     });
@@ -347,6 +366,11 @@ export default function TrackerPage() {
                 {finishError}
               </p>
             ) : null}
+            {logError ? (
+              <p role="alert" className="text-sm text-[#e23b4a]">
+                {logError}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </aside>
@@ -438,6 +462,11 @@ export default function TrackerPage() {
             {finishError ? (
               <p role="alert" className="text-sm text-[#e23b4a]">
                 {finishError}
+              </p>
+            ) : null}
+            {logError ? (
+              <p role="alert" className="text-sm text-[#e23b4a]">
+                {logError}
               </p>
             ) : null}
           </div>

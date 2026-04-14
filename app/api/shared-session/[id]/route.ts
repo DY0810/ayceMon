@@ -40,7 +40,12 @@ export async function GET(
       )
       .eq("id", id)
       .maybeSingle(),
-    supabase.from("shared_session_items").select("*").eq("session_id", id),
+    supabase
+      .from("shared_session_items")
+      .select(
+        "id, session_id, name, ala_carte_value, fill_factor, grams_per_unit, category, source_kind, source_ref",
+      )
+      .eq("session_id", id),
     supabase
       .from("shared_session_entries")
       .select("id, session_id, user_id, item_id, units, grams, logged_at")

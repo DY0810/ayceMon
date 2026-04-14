@@ -5,11 +5,12 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/require-user";
-import { computeFullness, computeTotals } from "@/lib/calc";
+import { computeTotals } from "@/lib/calc";
 import type { Database } from "@/lib/supabase/database.types";
 import type {
   EatenEntry,
   Item,
+  ResolvedPlace,
   SessionContributor,
   SharedSessionId,
 } from "@/lib/types";
@@ -57,6 +58,7 @@ export interface CreateSharedSessionInput {
   cityTier?: string | null;
   restaurantName?: string | null;
   restaurantId?: string | null; // optional existing restaurants.id reference
+  resolvedPlace?: ResolvedPlace | null;
   startedAt: string; // ISO
 }
 
@@ -132,6 +134,39 @@ export async function createSharedSession(
     return { ok: false, error: "invalid_input" };
   }
 
+  // `resolvedPlace` is display-only jsonb: only `googlePlaceId` is ever
+  // trusted server-side. We still validate shape + bound every field so
+  // the row survives RLS without leaking untyped client data into jsonb.
+  let resolvedPlaceRow: ResolvedPlace | null = null;
+  if (input.resolvedPlace !== undefined && input.resolvedPlace !== null) {
+    const rp = input.resolvedPlace;
+    if (
+      typeof rp !== "object" ||
+      typeof rp.googlePlaceId !== "string" ||
+      rp.googlePlaceId.length === 0 ||
+      rp.googlePlaceId.length > 255 ||
+      typeof rp.name !== "string" ||
+      rp.name.length > 255 ||
+      typeof rp.formattedAddress !== "string" ||
+      rp.formattedAddress.length > 500 ||
+      !isFiniteNumber(rp.lat) ||
+      rp.lat < -90 ||
+      rp.lat > 90 ||
+      !isFiniteNumber(rp.lng) ||
+      rp.lng < -180 ||
+      rp.lng > 180
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    resolvedPlaceRow = {
+      googlePlaceId: rp.googlePlaceId,
+      name: rp.name,
+      formattedAddress: rp.formattedAddress,
+      lat: rp.lat,
+      lng: rp.lng,
+    };
+  }
+
   const sessionRow: SharedSessionsInsert = {
     owner_user_id: user.id,
     restaurant_id: input.restaurantId ?? null,
@@ -140,6 +175,11 @@ export async function createSharedSession(
     appetite_budget: input.appetiteBudget,
     appetite_budget_grams: input.appetiteBudgetGrams ?? null,
     city_tier: input.cityTier ?? null,
+    resolved_place:
+      resolvedPlaceRow === null
+        ? null
+        : // supabase-js auto-serializes jsonb; do NOT JSON.stringify (invariant #8).
+          (resolvedPlaceRow as unknown as SharedSessionsInsert["resolved_place"]),
     started_at: input.startedAt,
   };
 
@@ -391,11 +431,13 @@ export async function finalizeSharedSession(
   const [itemsRes, entriesRes] = await Promise.all([
     supabase
       .from("shared_session_items")
-      .select("*")
+      .select(
+        "id, name, ala_carte_value, fill_factor, grams_per_unit, category, source_kind, source_ref",
+      )
       .eq("session_id", session.id),
     supabase
       .from("shared_session_entries")
-      .select("*")
+      .select("user_id, item_id, units, grams")
       .eq("session_id", session.id),
   ]);
 
@@ -478,13 +520,9 @@ export async function finalizeSharedSession(
 
   // Idempotency: client_session_id = shared_session.id. A retry upserts
   // into the same row via the (user_id, client_session_id) unique index
-  // from 0001_init.sql. finished_at is re-stamped on retry, which is fine.
+  // from 0001_init.sql. finished_at is preserved on retry so the original
+  // timestamp wins.
   const finishedAt = session.finished_at ?? new Date().toISOString();
-
-  // Fullness isn't persisted on session_records today — it's computed on
-  // read from library/eaten. We still call computeFullness here to guarantee
-  // the contributors snapshot sums are consistent with the on-read math.
-  computeFullness(library, eaten, session.appetite_budget_grams);
 
   const recordRow: SessionRecordsInsert = {
     user_id: user.id, // owner's user_id

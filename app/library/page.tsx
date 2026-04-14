@@ -68,6 +68,11 @@ export default function LibraryPage() {
 
   const shared = useSharedSession(sharedSessionId);
   const session = sharedSessionId ? shared.session : soloSession;
+  // Same pattern as tracker — depend on the stable `refresh` function, not
+  // the parent `shared` view object (which is rebuilt every render).
+  const refreshShared = shared.refresh;
+
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const addItemToLibrary = useCallback(
     (item: Omit<Item, "id">) => {
@@ -76,11 +81,18 @@ export default function LibraryPage() {
         return;
       }
       const withId: Item = { ...item, id: crypto.randomUUID() };
+      setMutationError(null);
       void addSharedLibraryItem({ sessionId: sharedSessionId, item: withId })
-        .then(() => shared.refresh())
-        .catch(() => void 0);
+        .then((result) => {
+          if (!result.ok) {
+            setMutationError("Could not add that item. Try again.");
+            return;
+          }
+          return refreshShared();
+        })
+        .catch(() => setMutationError("Could not add that item. Try again."));
     },
-    [sharedSessionId, soloAddItem, shared],
+    [sharedSessionId, soloAddItem, refreshShared],
   );
 
   const removeItemFromLibrary = useCallback(
@@ -89,11 +101,18 @@ export default function LibraryPage() {
         soloRemoveItem(id);
         return;
       }
+      setMutationError(null);
       void removeSharedLibraryItem({ sessionId: sharedSessionId, itemId: id })
-        .then(() => shared.refresh())
-        .catch(() => void 0);
+        .then((result) => {
+          if (!result.ok) {
+            setMutationError("Could not remove that item. Try again.");
+            return;
+          }
+          return refreshShared();
+        })
+        .catch(() => setMutationError("Could not remove that item. Try again."));
     },
-    [sharedSessionId, soloRemoveItem, shared],
+    [sharedSessionId, soloRemoveItem, refreshShared],
   );
 
   const cityTier = session?.cityTier;
@@ -454,6 +473,15 @@ export default function LibraryPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {mutationError ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-2xl border border-[#e23b4a]/40 bg-[#e23b4a]/10 px-4 py-3 text-sm text-[#e23b4a]"
+        >
+          {mutationError}
+        </p>
+      ) : null}
 
       {session.library.length > 0 && summary.bestRatio ? (
         <div className="mb-8 hidden gap-4 sm:grid sm:grid-cols-3">

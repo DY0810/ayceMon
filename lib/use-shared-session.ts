@@ -121,7 +121,11 @@ function mapApiToSession(data: SharedSessionApi): Session {
     id: s.id,
     restaurantName: s.restaurant_name ?? undefined,
     buffetPrice: Number(s.buffet_price),
-    appetiteBudget: s.appetite_budget ?? 0,
+    // Null-budget shared sessions use 50 (the legacy-column median that
+    // finalizeSharedSession writes when persisting). 0 would divide-by-zero
+    // the tracker's "units / budget" display; using 50 keeps the display
+    // and the persisted row consistent.
+    appetiteBudget: s.appetite_budget ?? 50,
     appetiteBudgetGrams:
       s.appetite_budget_grams === null ? null : Number(s.appetite_budget_grams),
     library,
@@ -150,31 +154,35 @@ export function useSharedSession(
   >([]);
   const [loading, setLoading] = useState<boolean>(Boolean(sharedSessionId));
   const [error, setError] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+  // Latest-requested id. In-flight fetches close over a local `id` snapshot
+  // and compare against this ref on resolve so a stale response can't write
+  // over the state for a newer id.
+  const activeIdRef = useRef<string | null>(sharedSessionId);
 
   const fetchOnce = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/shared-session/${id}`, {
         cache: "no-store",
       });
+      if (activeIdRef.current !== id) return;
       if (!res.ok) {
         setError(res.status === 404 ? "not_found" : "fetch_failed");
         return;
       }
       const data = (await res.json()) as SharedSessionApi;
-      if (cancelledRef.current) return;
+      if (activeIdRef.current !== id) return;
       setSession(mapApiToSession(data));
       setCollaborators(data.collaborators);
       setError(null);
     } catch {
-      if (!cancelledRef.current) setError("fetch_failed");
+      if (activeIdRef.current === id) setError("fetch_failed");
     } finally {
-      if (!cancelledRef.current) setLoading(false);
+      if (activeIdRef.current === id) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    cancelledRef.current = false;
+    activeIdRef.current = sharedSessionId;
     if (!sharedSessionId) {
       setSession(null);
       setCollaborators([]);
@@ -189,7 +197,11 @@ export function useSharedSession(
       POLL_INTERVAL_MS,
     );
     return () => {
-      cancelledRef.current = true;
+      // Mark in-flight fetches for this id as stale. The next effect run
+      // (or unmount cleanup) sets activeIdRef to the new id / null.
+      if (activeIdRef.current === sharedSessionId) {
+        activeIdRef.current = null;
+      }
       clearInterval(interval);
     };
   }, [sharedSessionId, fetchOnce]);
