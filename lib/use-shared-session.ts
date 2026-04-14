@@ -19,6 +19,11 @@ import type { EatenEntry, Item, Session } from "./types";
 
 const POLL_INTERVAL_MS = 2500;
 const LOG_POLL_AFTER_WRITE_MS = 300;
+// Short retry on a 404 response to absorb transient auth-cookie refresh
+// races. A permanent 404 (stale session id) still surfaces after the
+// retry fails; a flaky 404 sandwiched between successful polls no longer
+// triggers the redirect-loop guards in /tracker and /result.
+const NOT_FOUND_RETRY_DELAY_MS = 400;
 
 interface SharedSessionApi {
   session: {
@@ -160,11 +165,23 @@ export function useSharedSession(
   const activeIdRef = useRef<string | null>(sharedSessionId);
 
   const fetchOnce = useCallback(async (id: string) => {
+    async function fetchRaw(): Promise<Response> {
+      return fetch(`/api/shared-session/${id}`, { cache: "no-store" });
+    }
     try {
-      const res = await fetch(`/api/shared-session/${id}`, {
-        cache: "no-store",
-      });
+      let res = await fetchRaw();
       if (activeIdRef.current !== id) return;
+      // Retry a 404 once after a short delay. A 404 from RLS can be a
+      // transient cookie-refresh race (auth.uid() briefly null between
+      // the old and new token) rather than a genuinely missing session.
+      // Surfacing "not_found" on a flaky 404 would trip the /tracker and
+      // /result redirect guards and bounce the user off a valid session.
+      if (res.status === 404) {
+        await new Promise((r) => setTimeout(r, NOT_FOUND_RETRY_DELAY_MS));
+        if (activeIdRef.current !== id) return;
+        res = await fetchRaw();
+        if (activeIdRef.current !== id) return;
+      }
       if (!res.ok) {
         setError(res.status === 404 ? "not_found" : "fetch_failed");
         return;
