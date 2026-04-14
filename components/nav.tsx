@@ -20,7 +20,15 @@ interface NavClientProps {
   signOutAction: () => Promise<void>;
 }
 
-type NavVisibility = "always" | "in-session" | "authed";
+// Phase 4 (collab-and-quantitative-appetite): `session-finished` gates the
+// /result link. Shared-session finishedAt is mirrored into the Zustand
+// store by /result itself so the nav doesn't have to mount the polling
+// hook on every route (see lib/use-shared-session.ts + app/result/page.tsx).
+type NavVisibility =
+  | "always"
+  | "in-session"
+  | "authed"
+  | "session-finished";
 
 interface NavItem {
   readonly href: string;
@@ -33,7 +41,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: "/library", label: "Library", visibility: "in-session" },
   { href: "/combos", label: "Combos", visibility: "in-session" },
   { href: "/tracker", label: "Tracker", visibility: "in-session" },
-  { href: "/result", label: "Result", visibility: "in-session" },
+  { href: "/result", label: "Result", visibility: "session-finished" },
   { href: "/history", label: "History", visibility: "authed" },
   { href: "/stats", label: "Stats", visibility: "authed" },
 ] as const;
@@ -48,9 +56,21 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
   const pathname = usePathname();
   const session = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+  const sharedSessionFinishedAt = useAyceStore(
+    (state) => state.sharedSessionFinishedAt,
+  );
 
   const sessionActive = hasHydrated && session !== null;
   const signedIn = user !== null;
+  // `/result` should surface once any active session reaches its finished
+  // draft state. Solo: session.finishedAt is set in Zustand by finishMeal().
+  // Shared: the mirror is written by /result after its poll resolves so the
+  // nav observes the transition without its own poller.
+  const sessionFinished =
+    hasHydrated &&
+    (((session?.finishedAt ?? null) !== null) ||
+      (sharedSessionId !== null && sharedSessionFinishedAt !== null));
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -85,6 +105,14 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
         return sessionActive || signedIn;
       case "authed":
         return signedIn;
+      case "session-finished":
+        return sessionFinished;
+      default: {
+        // Exhaustiveness guard — TypeScript errors here if a new
+        // NavVisibility variant is added without a matching case above.
+        const _exhaustive: never = item.visibility;
+        return _exhaustive;
+      }
     }
   }
 
