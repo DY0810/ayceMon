@@ -16,6 +16,10 @@ export interface PickedState {
   name: string;
   alaCarteValue: string;
   fillFactor: number;
+  // Phase 2 (collab-and-quantitative-appetite): grams-per-unit carried
+  // through from the seed so the library dialog can pre-fill it. Undefined
+  // for estimate suggestions (the LLM path does not produce a mass yet).
+  gramsPerUnit: number | undefined;
   category: string;
   sourceKind: PriceSource;
   sourceRef: string | undefined;
@@ -42,6 +46,7 @@ export function applyPick(
       name: entry.name,
       alaCarteValue: String(adjusted),
       fillFactor: entry.fillFactor,
+      gramsPerUnit: entry.gramsPerUnit,
       category: entry.category ?? "",
       sourceKind: source,
       sourceRef: entry.id,
@@ -52,6 +57,7 @@ export function applyPick(
     name: suggestion.name,
     alaCarteValue: String(suggestion.estimate),
     fillFactor: 5,
+    gramsPerUnit: undefined,
     category: "",
     sourceKind: source,
     sourceRef: `estimate.${suggestion.name.toLowerCase()}`,
