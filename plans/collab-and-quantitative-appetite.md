@@ -723,6 +723,7 @@ Final sweep. By the time this phase starts, Phases 0/1/2/5 are on `main` (merged
   - `/import` lingering references
   - `appetiteBudget` mutations outside the legacy-compat clamp in `app/setup/page.tsx`
   - `console.*` in production code paths (allow in tests)
+- **Backfill gap to close (audit-flagged 2026-04-14):** `app/actions/migrate.ts` (`promoteGuestSessions`) currently writes `appetite_budget` but **not** `appetite_budget_grams`. Result: any guest session that was created on or after Phase 2 with a grams budget lands in `session_records` with `appetite_budget_grams = null` after sign-in promotion. Phase 1 Task 7 deliberately scoped the validator change to `app/actions/sessions.ts` only, so this is not a Phase 1 violation — but it must be closed here, before any user signs off on `0007` retiring the legacy column. Add a one-line `appetite_budget_grams: session.appetiteBudgetGrams ?? null` to the `SessionRecordsInsert` literal at `app/actions/migrate.ts:104` and extend the migrate validator to accept the optional grams budget with the same range (`50..10000` or null) used in `app/actions/sessions.ts`.
 - **Optional** migration `0007_retire_legacy_appetite.sql`: drops `session_records.appetite_budget` **only if** a prod-data audit confirms zero session_records rows have `appetite_budget_grams IS NULL AND finished_at > now() - interval '30 days'` AND the user signs off explicitly. Without that sign-off this migration is **blocked**; record the audit query + result + sign-off quote in the PR body before merging (reviewer-flagged m6). If deferred, open a follow-up tracking issue.
 
 ## Tasks
@@ -741,10 +742,11 @@ Final sweep. By the time this phase starts, Phases 0/1/2/5 are on `main` (merged
    - `#14` grep `user_id:` in shared-session insert bodies — must be `auth.uid()` or the authenticated client default, never from the client payload
    - `#16` grep `logEaten\b` — every occurrence paired with a `sharedSessionId` branch
    - `#17` grep `sharedSessionId\|SharedSession` in `components/` — zero matches outside `components/share-*.tsx`
-4. Delete dead code the prior phases flagged with TODOs (if any). One focused cleanup PR.
-5. Update `README.md` with: shared-session feature blurb (2–3 sentences), grams-based appetite blurb (1 sentence + link to `docs/quantitative-appetite.md`), screenshot of share drawer.
-6. Close out the plan: add a "STATUS: COMPLETE (<date>)" line at the very top. Do **not** move to `plans/done/` — the existing `plans/docker-kubernetes.md` sets the in-place convention.
-7. Save post-plan memory entries listed at the bottom of this plan.
+4. Close the **migrate.ts grams backfill gap** (see "Backfill gap to close" above): edit `app/actions/migrate.ts` to (a) accept `appetite_budget_grams` validation in the per-session loop matching `app/actions/sessions.ts`, and (b) include `appetite_budget_grams: session.appetiteBudgetGrams ?? null` in the `SessionRecordsInsert`. Add a unit test under `app/actions/migrate.test.ts` proving promotion preserves the grams budget. This MUST land before any `0007` retire-legacy work.
+5. Delete dead code the prior phases flagged with TODOs (if any). One focused cleanup PR (can be the same PR as task 4 if scope stays small).
+6. Update `README.md` with: shared-session feature blurb (2–3 sentences), grams-based appetite blurb (1 sentence + link to `docs/quantitative-appetite.md`), screenshot of share drawer.
+7. Close out the plan: add a "STATUS: COMPLETE (<date>)" line at the very top. Do **not** move to `plans/done/` — the existing `plans/docker-kubernetes.md` sets the in-place convention.
+8. Save post-plan memory entries listed at the bottom of this plan.
 
 ## Verification
 
