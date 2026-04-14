@@ -142,12 +142,15 @@ export async function createSharedSession(
     const rp = input.resolvedPlace;
     if (
       typeof rp !== "object" ||
+      Array.isArray(rp) ||
       typeof rp.googlePlaceId !== "string" ||
       rp.googlePlaceId.length === 0 ||
       rp.googlePlaceId.length > 255 ||
       typeof rp.name !== "string" ||
+      rp.name.length === 0 ||
       rp.name.length > 255 ||
       typeof rp.formattedAddress !== "string" ||
+      rp.formattedAddress.length === 0 ||
       rp.formattedAddress.length > 500 ||
       !isFiniteNumber(rp.lat) ||
       rp.lat < -90 ||
