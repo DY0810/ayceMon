@@ -46,6 +46,22 @@ export async function promoteGuestSessions(
       continue;
     }
 
+    // Phase 8: mirror the grams validator from app/actions/sessions.ts so
+    // promotion from guest buffer preserves the Phase 1 grams-based budget
+    // without letting a bogus value slip past RLS + the 0004 CHECK. Legacy
+    // undefined / opted-out null both land as null in the DB.
+    if (
+      session.appetiteBudgetGrams !== undefined &&
+      session.appetiteBudgetGrams !== null &&
+      (typeof session.appetiteBudgetGrams !== "number" ||
+        !Number.isFinite(session.appetiteBudgetGrams) ||
+        session.appetiteBudgetGrams < 50 ||
+        session.appetiteBudgetGrams > 10000)
+    ) {
+      result.failed.push({ id: session.id, error: "invalid_input" });
+      continue;
+    }
+
     try {
       // Step 1 — resolve the canonical restaurant only when the guest
       // captured a Google Place at setup. Sessions without one promote
@@ -102,6 +118,7 @@ export async function promoteGuestSessions(
         client_session_id: session.id,
         buffet_price: session.buffetPrice,
         appetite_budget: session.appetiteBudget,
+        appetite_budget_grams: session.appetiteBudgetGrams ?? null,
         library: session.library as unknown as SessionRecordsInsert["library"],
         eaten: session.eaten as unknown as SessionRecordsInsert["eaten"],
         total_eaten_value: total,

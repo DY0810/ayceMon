@@ -2,6 +2,18 @@
 
 Track whether you're beating the buffet. Start a session, build a library of items with their à la carte prices, eat strategically, and see if you got your money's worth.
 
+## Features
+
+### Shared sessions (invite a friend)
+
+Signed-in users can turn any session into a **shared session**: the owner mints a short-lived invite link from the Share drawer, collaborators open the link, authenticate, and log their *own* eaten entries against the same session. The owner can finalize when everyone's done — the result page on `/history/[id]` shows per-user attribution.
+
+![Share drawer](docs/screenshots/share-drawer.png)
+
+### Grams-based appetite model
+
+The appetite budget is expressed in **grams of food** (research-backed defaults at 800 / 1200 / 1800 / 2500 g) — see [`docs/quantitative-appetite.md`](docs/quantitative-appetite.md) for provenance.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -68,21 +80,28 @@ npm test              # Vitest unit tests
 
 ## E2E Tests (Playwright)
 
-Two E2E specs live in `e2e/`:
+E2E specs live in `e2e/`:
 
-- **`guest-path.spec.ts`** — The original guest flow: setup → library → combos → tracker → result. No auth required.
-- **`signed-in-path.spec.ts`** — Sign in → setup → library → tracker → finish → history → stats. Requires a running Supabase project with valid env vars; seeds a test user via the admin API and cleans up after.
+- **`guest-path.spec.ts`** — guest flow (setup → library → combos → tracker → result); no auth required.
+- **`signed-in-path.spec.ts`** — signed-in solo flow (sign in → setup → library → tracker → finish → history → stats).
+- **`shared-session-invite.spec.ts`** — two-user invite / join / per-user attribution flow (Phase 7).
+- **`grams-log.spec.ts`** — solo `+g` log path + result breakdown grams column (Phase 3).
+- **`result-gate.spec.ts`** — `/result` redirect guard for in-progress sessions (Phase 4).
 
-To run:
+Specs that touch Supabase seed test users via the admin API and clean up after themselves. Run the full suite with:
 
 ```bash
 npx playwright install chromium   # first time only
-npx playwright test               # runs both specs
-npx playwright test e2e/guest-path.spec.ts       # guest only
-npx playwright test e2e/signed-in-path.spec.ts   # signed-in only
+node --env-file=.env.local node_modules/@playwright/test/cli.js test
 ```
 
-The Playwright config starts a dev server automatically (`npm run dev`). Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in your environment for the signed-in spec.
+The `--env-file` flag loads `.env.local` so the specs see `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` — Playwright itself doesn't load that file, even though Next.js does. The Playwright config starts a dev server automatically (`npm run dev`).
+
+To regenerate the share-drawer screenshot used above:
+
+```bash
+SNAPSHOT_SHARE_DRAWER=1 node --env-file=.env.local node_modules/@playwright/test/cli.js test e2e/shared-session-invite.spec.ts
+```
 
 ## Build
 
