@@ -218,6 +218,205 @@ export async function createSharedSession(
 }
 
 // ---------------------------------------------------------------------------
+// updateSharedSession — owner-only field updates.
+//
+// Covers the owner-edit path listed in Phase 6 Task 4 of
+// plans/collab-and-quantitative-appetite.md. No UI surfaces this yet
+// (an edit-session drawer ships with Phase 7+), but wiring the server
+// action now keeps the RLS policy + validation honest and lets the UI
+// land as a pure client change.
+//
+// Only fields that are meaningful to patch mid-session appear here.
+// `id`, `ownerUserId`, `startedAt`, `finishedAt`, and `createdAt` are
+// never patchable: `id`/`createdAt` are immutable, `ownerUserId` is
+// pinned by RLS, `startedAt` fixes the record's clock, and
+// `finishedAt` is only mutated by finalize. An explicit `null` on a
+// nullable field clears it; `undefined` leaves the current value
+// intact.
+// ---------------------------------------------------------------------------
+export interface UpdateSharedSessionPatch {
+  buffetPrice?: number;
+  appetiteBudget?: number | null;
+  appetiteBudgetGrams?: number | null;
+  cityTier?: string | null;
+  restaurantName?: string | null;
+  restaurantId?: string | null;
+  resolvedPlace?: ResolvedPlace | null;
+}
+
+export interface UpdateSharedSessionInput {
+  sessionId: SharedSessionId;
+  patch: UpdateSharedSessionPatch;
+}
+
+type SharedSessionsUpdate =
+  Database["public"]["Tables"]["shared_sessions"]["Update"];
+
+export async function updateSharedSession(
+  input: UpdateSharedSessionInput,
+): Promise<ActionResult<{ ok: true }>> {
+  const { user, supabase } = await requireUser();
+
+  if (!isValidUuid(input?.sessionId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const patch = input.patch;
+  if (
+    typeof patch !== "object" ||
+    patch === null ||
+    Array.isArray(patch)
+  ) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const row: SharedSessionsUpdate = {};
+
+  if (patch.buffetPrice !== undefined) {
+    if (
+      !isFiniteNumber(patch.buffetPrice) ||
+      patch.buffetPrice < 0 ||
+      patch.buffetPrice > 10000
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.buffet_price = patch.buffetPrice;
+  }
+
+  if (patch.appetiteBudget !== undefined) {
+    if (
+      patch.appetiteBudget !== null &&
+      (!Number.isInteger(patch.appetiteBudget) ||
+        patch.appetiteBudget < 1 ||
+        patch.appetiteBudget > 100)
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.appetite_budget = patch.appetiteBudget;
+  }
+
+  if (patch.appetiteBudgetGrams !== undefined) {
+    if (
+      patch.appetiteBudgetGrams !== null &&
+      (!isFiniteNumber(patch.appetiteBudgetGrams) ||
+        patch.appetiteBudgetGrams < 50 ||
+        patch.appetiteBudgetGrams > 10000)
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.appetite_budget_grams = patch.appetiteBudgetGrams;
+  }
+
+  if (patch.cityTier !== undefined) {
+    if (
+      patch.cityTier !== null &&
+      !["metro-premium", "metro-standard", "suburban", "rural"].includes(
+        patch.cityTier,
+      )
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.city_tier = patch.cityTier;
+  }
+
+  if (patch.restaurantName !== undefined) {
+    if (
+      patch.restaurantName !== null &&
+      (typeof patch.restaurantName !== "string" ||
+        patch.restaurantName.length > 255)
+    ) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.restaurant_name = patch.restaurantName;
+  }
+
+  if (patch.restaurantId !== undefined) {
+    if (patch.restaurantId !== null && !isValidUuid(patch.restaurantId)) {
+      return { ok: false, error: "invalid_input" };
+    }
+    row.restaurant_id = patch.restaurantId;
+  }
+
+  if (patch.resolvedPlace !== undefined) {
+    if (patch.resolvedPlace === null) {
+      row.resolved_place = null;
+    } else {
+      const rp = patch.resolvedPlace;
+      if (
+        typeof rp !== "object" ||
+        Array.isArray(rp) ||
+        typeof rp.googlePlaceId !== "string" ||
+        rp.googlePlaceId.length === 0 ||
+        rp.googlePlaceId.length > 255 ||
+        typeof rp.name !== "string" ||
+        rp.name.length === 0 ||
+        rp.name.length > 255 ||
+        typeof rp.formattedAddress !== "string" ||
+        rp.formattedAddress.length === 0 ||
+        rp.formattedAddress.length > 500 ||
+        !isFiniteNumber(rp.lat) ||
+        rp.lat < -90 ||
+        rp.lat > 90 ||
+        !isFiniteNumber(rp.lng) ||
+        rp.lng < -180 ||
+        rp.lng > 180
+      ) {
+        return { ok: false, error: "invalid_input" };
+      }
+      const normalized: ResolvedPlace = {
+        googlePlaceId: rp.googlePlaceId,
+        name: rp.name,
+        formattedAddress: rp.formattedAddress,
+        lat: rp.lat,
+        lng: rp.lng,
+      };
+      row.resolved_place =
+        normalized as unknown as SharedSessionsUpdate["resolved_place"];
+    }
+  }
+
+  if (Object.keys(row).length === 0) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  // Owner + not-yet-finalized check. RLS blocks non-owner updates, but we
+  // short-circuit with a clear error code and also refuse to mutate a
+  // finalized session (its snapshot is already in session_records).
+  const { data: existing, error: lookupError } = await supabase
+    .from("shared_sessions")
+    .select("owner_user_id, finished_at")
+    .eq("id", input.sessionId)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { ok: false, error: "session_lookup_failed" };
+  }
+  if (!existing) {
+    return { ok: false, error: "not_found" };
+  }
+  if (existing.owner_user_id !== user.id) {
+    return { ok: false, error: "not_owner" };
+  }
+  if (existing.finished_at !== null) {
+    return { ok: false, error: "already_finalized" };
+  }
+
+  const { error: updateError } = await supabase
+    .from("shared_sessions")
+    .update(row)
+    .eq("id", input.sessionId);
+
+  if (updateError) {
+    return { ok: false, error: "session_update_failed" };
+  }
+
+  revalidatePath(`/tracker?session=${input.sessionId}`);
+  revalidatePath(`/library?session=${input.sessionId}`);
+  revalidatePath(`/result?session=${input.sessionId}`);
+  return { ok: true, data: { ok: true } };
+}
+
+// ---------------------------------------------------------------------------
 // addSharedLibraryItem — owner-only. Adds/overwrites a library entry.
 // ---------------------------------------------------------------------------
 export interface AddSharedLibraryItemInput {
