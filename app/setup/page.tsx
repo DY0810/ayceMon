@@ -75,6 +75,28 @@ export default function SetupPage() {
   const router = useRouter();
   const startSession = useAyceStore((state) => state.startSession);
   const setSharedSessionId = useAyceStore((state) => state.setSharedSessionId);
+  // Post-plan gate (2026-04-14): while any session is in progress (solo
+  // finishedAt null OR shared finishedAt null), redirect to /tracker so
+  // users can't start a second session on top. Finished-draft sessions
+  // (finishedAt set but not yet cleared) still allow /setup so the user
+  // can begin their next meal.
+  const activeSession = useAyceStore((state) => state.session);
+  const hasHydrated = useAyceStore((state) => state._hasHydrated);
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+  const sharedSessionFinishedAt = useAyceStore(
+    (state) => state.sharedSessionFinishedAt,
+  );
+  const soloInProgress =
+    activeSession !== null && !activeSession.finishedAt;
+  const sharedInProgress =
+    sharedSessionId !== null && sharedSessionFinishedAt === null;
+  const redirectingBecauseActive =
+    hasHydrated && (soloInProgress || sharedInProgress);
+  useEffect(() => {
+    if (redirectingBecauseActive) {
+      router.replace("/tracker");
+    }
+  }, [redirectingBecauseActive, router]);
 
   const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | undefined>(
     undefined,
@@ -240,6 +262,13 @@ export default function SetupPage() {
       : budgetMode === "custom"
         ? Number(customGrams) || null
         : presetGrams;
+
+  // Render nothing while the effect above replaces the route. Returning
+  // early avoids flashing the "Start a session" form on top of an active
+  // session.
+  if (redirectingBecauseActive) {
+    return null;
+  }
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
