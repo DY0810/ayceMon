@@ -139,12 +139,14 @@ export default function LibraryPage() {
   >(undefined);
 
   // Redirect guard: no session → /setup. Run after hydration to avoid
-  // bouncing on the initial render before persisted state is loaded.
-  // Shared mode: wait for the first poll to resolve before bouncing.
+  // bouncing on the initial render before persisted state is loaded. In
+  // shared mode we only redirect on an explicit "not_found" error from
+  // the polling endpoint — relying on `!shared.loading` would race the
+  // hydration→fetch transition (matches the tracker guard).
   useEffect(() => {
     if (!hasHydrated) return;
     if (sharedSessionId) {
-      if (!shared.loading && shared.session === null) {
+      if (shared.error === "not_found") {
         router.replace("/setup");
       }
       return;
@@ -152,7 +154,7 @@ export default function LibraryPage() {
     if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, sharedSessionId, shared.loading, shared.session, router]);
+  }, [hasHydrated, session, sharedSessionId, shared.error, router]);
 
   const summary = useMemo(() => {
     const lib = session?.library ?? [];
