@@ -46,6 +46,8 @@ export interface SeedEntry {
   valueHigh: number;
   /** Integer in [1, 10]. */
   fillFactor: number;
+  /** Grams per one serving unit. See docs/quantitative-appetite.md. */
+  gramsPerUnit: number;
 }
 
 /** Cuisine priority order for tie-breaking `findSeedMatches` results. */
@@ -79,6 +81,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 26,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.prime-short-rib",
@@ -90,6 +93,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 20,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.la-galbi",
@@ -101,6 +105,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.marinated-galbi",
@@ -112,6 +117,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 20,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.brisket",
@@ -123,6 +129,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 16,
     fillFactor: 4,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.bulgogi",
@@ -134,6 +141,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 6,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.beef-tongue",
@@ -145,6 +153,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 4,
+    gramsPerUnit: 100,
   },
   {
     id: "kbbq.ribeye",
@@ -156,6 +165,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 16,
     valueHigh: 24,
     fillFactor: 6,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.sirloin",
@@ -167,6 +177,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.hanger-steak",
@@ -178,6 +189,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 20,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.pork-belly",
@@ -189,6 +201,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 6,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.thick-pork-belly",
@@ -200,6 +213,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 20,
     fillFactor: 6,
+    gramsPerUnit: 160,
   },
   {
     id: "kbbq.spicy-pork",
@@ -211,6 +225,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 6,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.pork-jowl",
@@ -222,6 +237,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.chicken-thigh",
@@ -233,6 +249,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 6,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.gopchang",
@@ -244,6 +261,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 5,
+    gramsPerUnit: 100,
   },
   {
     id: "kbbq.daechang",
@@ -255,6 +273,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 5,
+    gramsPerUnit: 100,
   },
   {
     id: "kbbq.yangnyeom-galbi",
@@ -266,6 +285,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 20,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "kbbq.japchae",
@@ -277,6 +297,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 13,
     fillFactor: 6,
+    gramsPerUnit: 180,
   },
   {
     id: "kbbq.kimchi",
@@ -288,6 +309,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 2,
+    gramsPerUnit: 50,
   },
   {
     id: "kbbq.kimchi-jjigae",
@@ -299,6 +321,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 7,
+    gramsPerUnit: 350,
   },
   {
     id: "kbbq.doenjang-jjigae",
@@ -310,6 +333,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 7,
+    gramsPerUnit: 350,
   },
   {
     id: "kbbq.soondubu",
@@ -321,6 +345,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 16,
     fillFactor: 7,
+    gramsPerUnit: 350,
   },
   {
     id: "kbbq.bibimbap",
@@ -332,6 +357,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 450,
   },
   {
     id: "kbbq.steamed-egg",
@@ -343,6 +369,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 200,
   },
 
   // ─── Sushi ───────────────────────────────────────────────────────────
@@ -356,6 +383,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5.5,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.tuna-nigiri",
@@ -367,6 +395,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3.5,
     valueHigh: 6,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.yellowtail-nigiri",
@@ -378,6 +407,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 6.5,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.shrimp-nigiri",
@@ -389,6 +419,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2.5,
     valueHigh: 5,
     fillFactor: 1,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.sweet-shrimp-nigiri",
@@ -400,6 +431,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 1,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.eel-nigiri",
@@ -411,6 +443,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4.5,
     valueHigh: 7,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.sea-urchin-nigiri",
@@ -422,6 +455,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.salmon-roe-nigiri",
@@ -433,6 +467,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.flying-fish-roe-nigiri",
@@ -444,6 +479,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 6.5,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.fatty-tuna-nigiri",
@@ -455,6 +491,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 14,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.mackerel-nigiri",
@@ -466,6 +503,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5.5,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.octopus-nigiri",
@@ -477,6 +515,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3.5,
     valueHigh: 6,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.squid-nigiri",
@@ -488,6 +527,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5.5,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.scallop-nigiri",
@@ -499,6 +539,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4.5,
     valueHigh: 7,
     fillFactor: 1,
+    gramsPerUnit: 20,
   },
   {
     id: "sushi.egg-nigiri",
@@ -510,6 +551,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 2,
+    gramsPerUnit: 25,
   },
   {
     id: "sushi.salmon-sashimi",
@@ -521,6 +563,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.tuna-sashimi",
@@ -532,6 +575,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4.5,
     valueHigh: 7.5,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.yellowtail-sashimi",
@@ -543,6 +587,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 1,
+    gramsPerUnit: 15,
   },
   {
     id: "sushi.california-roll",
@@ -554,6 +599,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 10,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.spicy-tuna-roll",
@@ -565,6 +611,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.spicy-salmon-roll",
@@ -576,6 +623,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.rainbow-roll",
@@ -587,6 +635,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 6,
+    gramsPerUnit: 220,
   },
   {
     id: "sushi.dragon-roll",
@@ -598,6 +647,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 18,
     fillFactor: 6,
+    gramsPerUnit: 220,
   },
   {
     id: "sushi.caterpillar-roll",
@@ -609,6 +659,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 6,
+    gramsPerUnit: 220,
   },
   {
     id: "sushi.philadelphia-roll",
@@ -620,6 +671,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.eel-avocado-roll",
@@ -631,6 +683,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.tempura-shrimp-roll",
@@ -642,6 +695,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 6,
+    gramsPerUnit: 220,
   },
   {
     id: "sushi.spider-roll",
@@ -653,6 +707,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 6,
+    gramsPerUnit: 220,
   },
   {
     id: "sushi.tuna-roll",
@@ -664,6 +719,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.salmon-roll",
@@ -675,6 +731,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 180,
   },
   {
     id: "sushi.cucumber-roll",
@@ -686,6 +743,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 140,
   },
   {
     id: "sushi.avocado-roll",
@@ -697,6 +755,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 140,
   },
   {
     id: "sushi.spicy-tuna-hand-roll",
@@ -708,6 +767,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 70,
   },
   {
     id: "sushi.salmon-hand-roll",
@@ -719,6 +779,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 70,
   },
   {
     id: "sushi.yellowtail-scallion-hand-roll",
@@ -730,6 +791,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 70,
   },
   {
     id: "sushi.edamame",
@@ -741,6 +803,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 120,
   },
   {
     id: "sushi.miso-soup",
@@ -752,6 +815,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5,
     fillFactor: 3,
+    gramsPerUnit: 240,
   },
   {
     id: "sushi.seaweed-salad",
@@ -763,6 +827,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 80,
   },
   {
     id: "sushi.agedashi-tofu",
@@ -774,6 +839,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 150,
   },
   {
     id: "sushi.gyoza",
@@ -785,6 +851,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 25,
   },
   {
     id: "sushi.chicken-teriyaki",
@@ -796,6 +863,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 20,
     fillFactor: 8,
+    gramsPerUnit: 250,
   },
 
   // ─── Chinese Buffet ──────────────────────────────────────────────────
@@ -809,6 +877,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.orange-chicken",
@@ -820,6 +889,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.sesame-chicken",
@@ -831,6 +901,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.beef-broccoli",
@@ -842,6 +913,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.kung-pao-chicken",
@@ -853,6 +925,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.mongolian-beef",
@@ -864,6 +937,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.sweet-sour-pork",
@@ -875,6 +949,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.sweet-sour-chicken",
@@ -886,6 +961,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.mapo-tofu",
@@ -897,6 +973,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.lo-mein",
@@ -908,6 +985,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 15,
     fillFactor: 8,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.chow-mein",
@@ -919,6 +997,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 15,
     fillFactor: 8,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.singapore-noodles",
@@ -930,6 +1009,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 8,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.fried-rice",
@@ -941,6 +1021,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 14,
     fillFactor: 7,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.yangzhou-fried-rice",
@@ -952,6 +1033,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 7,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.egg-roll",
@@ -963,6 +1045,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 3,
+    gramsPerUnit: 80,
   },
   {
     id: "chinese.spring-roll",
@@ -974,6 +1057,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 2,
+    gramsPerUnit: 40,
   },
   {
     id: "chinese.crab-rangoon",
@@ -985,6 +1069,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 1.5,
     valueHigh: 3,
     fillFactor: 2,
+    gramsPerUnit: 20,
   },
   {
     id: "chinese.wonton-soup",
@@ -996,6 +1081,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.hot-sour-soup",
@@ -1007,6 +1093,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.egg-drop-soup",
@@ -1018,6 +1105,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 4,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.peking-duck",
@@ -1029,6 +1117,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 20,
     valueHigh: 35,
     fillFactor: 9,
+    gramsPerUnit: 300,
   },
   {
     id: "chinese.salt-pepper-shrimp",
@@ -1040,6 +1129,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 7,
+    gramsPerUnit: 220,
   },
   {
     id: "chinese.chow-fun",
@@ -1051,6 +1141,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 8,
+    gramsPerUnit: 350,
   },
   {
     id: "chinese.dry-fried-green-beans",
@@ -1062,6 +1153,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 5,
+    gramsPerUnit: 120,
   },
   {
     id: "chinese.garlic-bok-choy",
@@ -1073,6 +1165,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 12,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
 
   // ─── Dim Sum ─────────────────────────────────────────────────────────
@@ -1086,6 +1179,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 100,
   },
   {
     id: "dimsum.siu-mai",
@@ -1097,6 +1191,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 100,
   },
   {
     id: "dimsum.char-siu-bao",
@@ -1108,6 +1203,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 80,
   },
   {
     id: "dimsum.baked-char-siu-bao",
@@ -1119,6 +1215,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4.5,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 90,
   },
   {
     id: "dimsum.egg-tart",
@@ -1130,6 +1227,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 2,
+    gramsPerUnit: 55,
   },
   {
     id: "dimsum.turnip-cake",
@@ -1141,6 +1239,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 60,
   },
   {
     id: "dimsum.taro-cake",
@@ -1152,6 +1251,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 60,
   },
   {
     id: "dimsum.chicken-feet",
@@ -1163,6 +1263,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 140,
   },
   {
     id: "dimsum.congee",
@@ -1174,6 +1275,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 6,
+    gramsPerUnit: 350,
   },
   {
     id: "dimsum.rice-noodle-roll",
@@ -1185,6 +1287,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 200,
   },
   {
     id: "dimsum.shrimp-rice-noodle-roll",
@@ -1196,6 +1299,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 9,
     fillFactor: 5,
+    gramsPerUnit: 220,
   },
   {
     id: "dimsum.xiao-long-bao",
@@ -1207,6 +1311,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "dimsum.potstickers",
@@ -1218,6 +1323,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 9,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "dimsum.sticky-rice-lotus-leaf",
@@ -1229,6 +1335,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 7,
+    gramsPerUnit: 220,
   },
   {
     id: "dimsum.beef-rice-noodle-roll",
@@ -1240,6 +1347,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 9,
     fillFactor: 5,
+    gramsPerUnit: 220,
   },
   {
     id: "dimsum.pork-ribs-black-bean",
@@ -1251,6 +1359,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 140,
   },
   {
     id: "dimsum.shrimp-toast",
@@ -1262,6 +1371,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 30,
   },
   {
     id: "dimsum.fried-sesame-ball",
@@ -1273,6 +1383,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 3,
+    gramsPerUnit: 50,
   },
   {
     id: "dimsum.mango-pudding",
@@ -1284,6 +1395,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 150,
   },
   {
     id: "dimsum.pan-fried-leek-dumpling",
@@ -1295,6 +1407,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 40,
   },
   {
     id: "dimsum.stuffed-eggplant",
@@ -1306,6 +1419,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 60,
   },
   {
     id: "dimsum.stuffed-tofu",
@@ -1317,6 +1431,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 60,
   },
   {
     id: "dimsum.fried-tofu-skin-roll",
@@ -1328,6 +1443,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 50,
   },
   {
     id: "dimsum.water-spinach",
@@ -1339,6 +1455,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 13,
     fillFactor: 4,
+    gramsPerUnit: 150,
   },
   {
     id: "dimsum.salt-pepper-squid",
@@ -1350,6 +1467,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 5,
+    gramsPerUnit: 200,
   },
 
   // ─── Hot Pot ────────────────────────────────────────────────────────
@@ -1363,6 +1481,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.fatty-beef",
@@ -1374,6 +1493,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 18,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.lamb-rolls",
@@ -1385,6 +1505,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.pork-belly",
@@ -1396,6 +1517,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.fish-balls",
@@ -1407,6 +1529,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 10,
     fillFactor: 3,
+    gramsPerUnit: 120,
   },
   {
     id: "hotpot.beef-balls",
@@ -1418,6 +1541,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 11,
     fillFactor: 3,
+    gramsPerUnit: 120,
   },
   {
     id: "hotpot.shrimp-paste",
@@ -1429,6 +1553,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 13,
     fillFactor: 4,
+    gramsPerUnit: 100,
   },
   {
     id: "hotpot.beef-tripe",
@@ -1440,6 +1565,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 3,
+    gramsPerUnit: 100,
   },
   {
     id: "hotpot.duck-blood",
@@ -1451,6 +1577,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 10,
     fillFactor: 3,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.enoki",
@@ -1462,6 +1589,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.shiitake",
@@ -1473,6 +1601,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 120,
   },
   {
     id: "hotpot.napa-cabbage",
@@ -1484,6 +1613,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 200,
   },
   {
     id: "hotpot.watercress",
@@ -1495,6 +1625,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 120,
   },
   {
     id: "hotpot.tofu",
@@ -1506,6 +1637,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 180,
   },
   {
     id: "hotpot.frozen-tofu",
@@ -1517,6 +1649,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.glass-noodles",
@@ -1528,6 +1661,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.udon",
@@ -1539,6 +1673,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 6,
+    gramsPerUnit: 200,
   },
   {
     id: "hotpot.rice-cake",
@@ -1550,6 +1685,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "hotpot.mala-broth",
@@ -1561,6 +1697,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 2,
+    gramsPerUnit: 0,
   },
   {
     id: "hotpot.tomato-broth",
@@ -1572,6 +1709,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 2,
+    gramsPerUnit: 0,
   },
 
   // ─── Brazilian / Churrasco ───────────────────────────────────────────
@@ -1585,6 +1723,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 28,
     fillFactor: 7,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.alcatra",
@@ -1596,6 +1735,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 7,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.ribeye",
@@ -1607,6 +1747,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 20,
     valueHigh: 30,
     fillFactor: 8,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.filet-mignon-bacon",
@@ -1618,6 +1759,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 22,
     valueHigh: 32,
     fillFactor: 7,
+    gramsPerUnit: 100,
   },
   {
     id: "brazilian.fraldinha",
@@ -1629,6 +1771,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 16,
     valueHigh: 24,
     fillFactor: 6,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.beef-ancho",
@@ -1640,6 +1783,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 28,
     fillFactor: 7,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.chicken-heart",
@@ -1651,6 +1795,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 8,
     valueHigh: 13,
     fillFactor: 3,
+    gramsPerUnit: 15,
   },
   {
     id: "brazilian.chicken-leg",
@@ -1662,6 +1807,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 6,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.chicken-wrapped-bacon",
@@ -1673,6 +1819,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 6,
+    gramsPerUnit: 80,
   },
   {
     id: "brazilian.linguica",
@@ -1684,6 +1831,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 5,
+    gramsPerUnit: 40,
   },
   {
     id: "brazilian.pork-ribs",
@@ -1695,6 +1843,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 20,
     fillFactor: 7,
+    gramsPerUnit: 80,
   },
   {
     id: "brazilian.lamb-chop",
@@ -1706,6 +1855,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 28,
     fillFactor: 6,
+    gramsPerUnit: 90,
   },
   {
     id: "brazilian.leg-of-lamb",
@@ -1717,6 +1867,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 28,
     fillFactor: 7,
+    gramsPerUnit: 120,
   },
   {
     id: "brazilian.pao-de-queijo",
@@ -1728,6 +1879,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 3,
+    gramsPerUnit: 20,
   },
   {
     id: "brazilian.farofa",
@@ -1739,6 +1891,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 60,
   },
 
   // ─── Indian Buffet ───────────────────────────────────────────────────
@@ -1752,6 +1905,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.butter-chicken",
@@ -1763,6 +1917,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.chicken-vindaloo",
@@ -1774,6 +1929,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.lamb-vindaloo",
@@ -1785,6 +1941,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.lamb-rogan-josh",
@@ -1796,6 +1953,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 8,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.saag-paneer",
@@ -1807,6 +1965,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 17,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.chana-masala",
@@ -1818,6 +1977,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.dal-makhani",
@@ -1829,6 +1989,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.aloo-gobi",
@@ -1840,6 +2001,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 15,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "indian.chicken-biryani",
@@ -1851,6 +2013,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 9,
+    gramsPerUnit: 400,
   },
   {
     id: "indian.lamb-biryani",
@@ -1862,6 +2025,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 15,
     valueHigh: 22,
     fillFactor: 9,
+    gramsPerUnit: 400,
   },
   {
     id: "indian.naan",
@@ -1873,6 +2037,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 5,
     fillFactor: 4,
+    gramsPerUnit: 90,
   },
   {
     id: "indian.garlic-naan",
@@ -1884,6 +2049,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 4,
+    gramsPerUnit: 90,
   },
   {
     id: "indian.samosa",
@@ -1895,6 +2061,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 3,
+    gramsPerUnit: 60,
   },
   {
     id: "indian.pakora",
@@ -1906,6 +2073,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 20,
   },
   {
     id: "indian.tandoori-chicken",
@@ -1917,6 +2085,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 13,
     valueHigh: 19,
     fillFactor: 7,
+    gramsPerUnit: 250,
   },
   {
     id: "indian.chicken-tikka",
@@ -1928,6 +2097,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 14,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "indian.gulab-jamun",
@@ -1939,6 +2109,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 40,
   },
   {
     id: "indian.mango-lassi",
@@ -1950,6 +2121,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 240,
   },
   {
     id: "indian.basmati-rice",
@@ -1961,6 +2133,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 5,
+    gramsPerUnit: 200,
   },
 
   // ─── Pizza ───────────────────────────────────────────────────────────
@@ -1974,6 +2147,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2.5,
     valueHigh: 5,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.pepperoni-slice",
@@ -1985,6 +2159,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5.5,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.supreme-slice",
@@ -1996,6 +2171,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3.5,
     valueHigh: 6,
     fillFactor: 5,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.sausage-slice",
@@ -2007,6 +2183,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 5.5,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.hawaiian-slice",
@@ -2018,6 +2195,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3.5,
     valueHigh: 6,
     fillFactor: 5,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.white-slice",
@@ -2029,6 +2207,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3.5,
     valueHigh: 6,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.margherita-slice",
@@ -2040,6 +2219,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 6.5,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "pizza.whole-cheese-pie",
@@ -2051,6 +2231,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 24,
     fillFactor: 10,
+    gramsPerUnit: 800,
   },
   {
     id: "pizza.chicken-wings",
@@ -2062,6 +2243,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 9,
     valueHigh: 15,
     fillFactor: 5,
+    gramsPerUnit: 30,
   },
   {
     id: "pizza.garlic-knots",
@@ -2073,6 +2255,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 25,
   },
 
   // ─── Seafood Buffet ──────────────────────────────────────────────────
@@ -2086,6 +2269,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 24,
     valueHigh: 38,
     fillFactor: 7,
+    gramsPerUnit: 300,
   },
   {
     id: "seafood.king-crab-legs",
@@ -2097,6 +2281,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 45,
     valueHigh: 75,
     fillFactor: 8,
+    gramsPerUnit: 400,
   },
   {
     id: "seafood.lobster-tail",
@@ -2108,6 +2293,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 22,
     valueHigh: 38,
     fillFactor: 6,
+    gramsPerUnit: 170,
   },
   {
     id: "seafood.shrimp-cocktail",
@@ -2119,6 +2305,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 18,
     fillFactor: 3,
+    gramsPerUnit: 15,
   },
   {
     id: "seafood.peel-eat-shrimp",
@@ -2130,6 +2317,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 17,
     fillFactor: 3,
+    gramsPerUnit: 10,
   },
   {
     id: "seafood.oyster-raw",
@@ -2141,6 +2329,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2.5,
     valueHigh: 5,
     fillFactor: 1,
+    gramsPerUnit: 25,
   },
   {
     id: "seafood.mussels",
@@ -2152,6 +2341,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 18,
     fillFactor: 6,
+    gramsPerUnit: 200,
   },
   {
     id: "seafood.clams",
@@ -2163,6 +2353,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 11,
     valueHigh: 18,
     fillFactor: 5,
+    gramsPerUnit: 200,
   },
   {
     id: "seafood.fried-calamari",
@@ -2174,6 +2365,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 16,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "seafood.fish-and-chips",
@@ -2185,6 +2377,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 14,
     valueHigh: 21,
     fillFactor: 8,
+    gramsPerUnit: 400,
   },
   {
     id: "seafood.grilled-salmon",
@@ -2196,6 +2389,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 18,
     valueHigh: 28,
     fillFactor: 8,
+    gramsPerUnit: 170,
   },
   {
     id: "seafood.scallops",
@@ -2207,6 +2401,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 19,
     valueHigh: 30,
     fillFactor: 6,
+    gramsPerUnit: 25,
   },
   {
     id: "seafood.crawfish-boil",
@@ -2218,6 +2413,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 12,
     valueHigh: 22,
     fillFactor: 4,
+    gramsPerUnit: 450,
   },
   {
     id: "seafood.ceviche",
@@ -2229,6 +2425,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 10,
     valueHigh: 17,
     fillFactor: 5,
+    gramsPerUnit: 180,
   },
   {
     id: "seafood.clam-chowder",
@@ -2240,6 +2437,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 11,
     fillFactor: 5,
+    gramsPerUnit: 300,
   },
 
   // ─── Dessert ─────────────────────────────────────────────────────────
@@ -2253,6 +2451,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 2,
     valueHigh: 4,
     fillFactor: 2,
+    gramsPerUnit: 40,
   },
   {
     id: "dessert.tiramisu",
@@ -2264,6 +2463,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 5,
+    gramsPerUnit: 120,
   },
   {
     id: "dessert.cheesecake-slice",
@@ -2275,6 +2475,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 5,
+    gramsPerUnit: 130,
   },
   {
     id: "dessert.chocolate-cake-slice",
@@ -2286,6 +2487,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 11,
     fillFactor: 5,
+    gramsPerUnit: 120,
   },
   {
     id: "dessert.creme-brulee",
@@ -2297,6 +2499,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 7,
     valueHigh: 12,
     fillFactor: 4,
+    gramsPerUnit: 150,
   },
   {
     id: "dessert.flan",
@@ -2308,6 +2511,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 10,
     fillFactor: 4,
+    gramsPerUnit: 120,
   },
   {
     id: "dessert.ice-cream-scoop",
@@ -2319,6 +2523,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 3,
     valueHigh: 6,
     fillFactor: 3,
+    gramsPerUnit: 70,
   },
   {
     id: "dessert.gelato",
@@ -2330,6 +2535,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 60,
   },
   {
     id: "dessert.brownie",
@@ -2341,6 +2547,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 4,
+    gramsPerUnit: 80,
   },
   {
     id: "dessert.cannoli",
@@ -2352,6 +2559,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 70,
   },
   {
     id: "dessert.tres-leches",
@@ -2363,6 +2571,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 11,
     fillFactor: 5,
+    gramsPerUnit: 150,
   },
   {
     id: "dessert.baklava",
@@ -2374,6 +2583,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 7,
     fillFactor: 3,
+    gramsPerUnit: 45,
   },
   {
     id: "dessert.churros",
@@ -2385,6 +2595,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 4,
+    gramsPerUnit: 30,
   },
   {
     id: "dessert.panna-cotta",
@@ -2396,6 +2607,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 6,
     valueHigh: 11,
     fillFactor: 4,
+    gramsPerUnit: 130,
   },
   {
     id: "dessert.jalapeno-popper",
@@ -2407,6 +2619,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 5,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 25,
   },
   {
     id: "dessert.fruit-salad",
@@ -2418,6 +2631,7 @@ export const SEED_CATALOG: readonly SeedEntry[] = [
     valueLow: 4,
     valueHigh: 8,
     fillFactor: 3,
+    gramsPerUnit: 180,
   },
 ];
 
