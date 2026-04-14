@@ -13,6 +13,7 @@ const sampleEntry: SeedEntry = {
   valueLow: 15,
   valueHigh: 22,
   fillFactor: 5,
+  gramsPerUnit: 150,
 };
 
 describe("applyPick", () => {
@@ -29,6 +30,7 @@ describe("applyPick", () => {
     expect(patch.sourceKind).toBe("seed");
     expect(patch.sourceRef).toBe("kbbq.wagyu-short-rib");
     expect(patch.pickedRefName).toBe("Wagyu short rib");
+    expect(patch.gramsPerUnit).toBe(150);
   });
 
   it("defaults to baseline when tier is omitted", () => {
@@ -85,6 +87,7 @@ describe("applyPick", () => {
     expect(patch.sourceKind).toBe("estimate");
     expect(patch.sourceRef).toBe("estimate.mystery dish");
     expect(patch.pickedRefName).toBe("Mystery dish");
+    expect(patch.gramsPerUnit).toBeUndefined();
   });
 });
 

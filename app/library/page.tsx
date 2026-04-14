@@ -23,7 +23,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import { ItemSuggest } from "@/components/item-suggest";
 import {
   applyPick,
@@ -38,6 +37,18 @@ import type { PriceSource } from "@/lib/types";
 interface ItemFormErrors {
   name?: string;
   alaCarteValue?: string;
+  gramsPerUnit?: string;
+}
+
+// Phase 2 (collab-and-quantitative-appetite): derive the legacy 1–10
+// fillFactor from grams per unit so items persisted by pre-grams
+// clients (and the Phase 3 tracker fallback) keep a sensible value.
+// Rule: round(g / 30), clamped to [1, 10]. 30 g per fill-unit aligns
+// with the author-picked anchors in PLAN.md (1 = single shrimp,
+// 10 = whole pizza ≈ 800 g / 8 slices).
+function deriveFillFactor(gramsPerUnit: number): number {
+  if (!Number.isFinite(gramsPerUnit) || gramsPerUnit <= 0) return 1;
+  return Math.min(10, Math.max(1, Math.round(gramsPerUnit / 30)));
 }
 
 export default function LibraryPage() {
@@ -55,7 +66,10 @@ export default function LibraryPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [alaCarteValue, setAlaCarteValue] = useState("");
-  const [fillFactor, setFillFactor] = useState(5);
+  const [gramsPerUnitInput, setGramsPerUnitInput] = useState("");
+  const [gramsPlaceholder, setGramsPlaceholder] = useState<number | undefined>(
+    undefined,
+  );
   const [category, setCategory] = useState("");
   const [errors, setErrors] = useState<ItemFormErrors>({});
   const [pickedSource, setPickedSource] = useState<PriceSource>("user");
@@ -102,7 +116,8 @@ export default function LibraryPage() {
   function resetForm() {
     setName("");
     setAlaCarteValue("");
-    setFillFactor(5);
+    setGramsPerUnitInput("");
+    setGramsPlaceholder(undefined);
     setCategory("");
     setErrors({});
     setPickedSource("user");
@@ -128,7 +143,18 @@ export default function LibraryPage() {
     const patch = applyPick(suggestion, source, cityTier);
     setName(patch.name);
     setAlaCarteValue(patch.alaCarteValue);
-    setFillFactor(patch.fillFactor);
+    // Phase 2: pre-fill grams-per-unit from the seed. If the user
+    // has not typed anything yet, also commit the value as the
+    // active input. Otherwise surface it only as a placeholder hint
+    // so their in-progress entry is not clobbered.
+    if (patch.gramsPerUnit !== undefined) {
+      setGramsPlaceholder(patch.gramsPerUnit);
+      if (gramsPerUnitInput.trim() === "") {
+        setGramsPerUnitInput(String(patch.gramsPerUnit));
+      }
+    } else {
+      setGramsPlaceholder(undefined);
+    }
     setCategory(patch.category);
     setPickedSource(patch.sourceKind);
     setPickedSourceRef(patch.sourceRef);
@@ -164,6 +190,12 @@ export default function LibraryPage() {
     } else if (value < 0) {
       next.alaCarteValue = "Value can't be negative.";
     }
+    const grams = Number(gramsPerUnitInput);
+    if (gramsPerUnitInput.trim() === "" || Number.isNaN(grams)) {
+      next.gramsPerUnit = "Enter grams per serving.";
+    } else if (grams < 1 || grams > 1000) {
+      next.gramsPerUnit = "Pick a number between 1 and 1000.";
+    }
     return next;
   }
 
@@ -172,10 +204,14 @@ export default function LibraryPage() {
     const next = validate();
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+    const grams = Number(gramsPerUnitInput);
     addItemToLibrary({
       name: name.trim(),
       alaCarteValue: Number(alaCarteValue),
-      fillFactor,
+      // Phase 2: write both new grams field AND legacy fillFactor
+      // (derived) so old-client fullness math keeps working.
+      gramsPerUnit: grams,
+      fillFactor: deriveFillFactor(grams),
       category: category.trim() || undefined,
       sourceKind: pickedSource,
       sourceRef: pickedSourceRef,
@@ -289,35 +325,62 @@ export default function LibraryPage() {
                 ) : null}
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="item-fill"
-                    className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
-                  >
-                    Fill factor
-                  </label>
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="item-grams"
+                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                >
+                  Grams per unit
+                </label>
+                <div className="relative">
+                  <Input
+                    id="item-grams"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    placeholder={
+                      gramsPlaceholder !== undefined
+                        ? String(gramsPlaceholder)
+                        : "150"
+                    }
+                    value={gramsPerUnitInput}
+                    onChange={(e) => setGramsPerUnitInput(e.target.value)}
+                    onBlur={() => setErrors(validate())}
+                    aria-invalid={errors.gramsPerUnit ? true : undefined}
+                    aria-describedby={
+                      errors.gramsPerUnit
+                        ? "item-grams-error"
+                        : "item-grams-help"
+                    }
+                    className="pr-10"
+                    required
+                  />
                   <span
-                    className="text-sm font-medium tabular-nums text-[#191c1f] dark:text-white"
-                    aria-live="polite"
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-[#505a63] dark:text-[#8d969e]"
                   >
-                    {fillFactor} / 10
+                    g
                   </span>
                 </div>
-                <Slider
-                  id="item-fill"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={fillFactor}
-                  onValueChange={(value) =>
-                    setFillFactor(Array.isArray(value) ? value[0] : value)
-                  }
-                />
-                <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
-                  How filling one unit is. 1 = a single shrimp, 10 = a whole
-                  pizza.
-                </p>
+                {errors.gramsPerUnit ? (
+                  <p
+                    id="item-grams-error"
+                    role="alert"
+                    className="text-sm text-[#e23b4a]"
+                  >
+                    {errors.gramsPerUnit}
+                  </p>
+                ) : (
+                  <p
+                    id="item-grams-help"
+                    className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                  >
+                    One serving unit in grams. E.g. one nigiri ≈ 20 g,
+                    one pizza slice ≈ 120 g.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -421,7 +484,9 @@ export default function LibraryPage() {
                     ·
                   </span>
                   <span className="text-[#505a63] tabular-nums dark:text-[#8d969e]">
-                    fill {item.fillFactor}/10
+                    {item.gramsPerUnit !== undefined
+                      ? `${item.gramsPerUnit} g`
+                      : `fill ${item.fillFactor}/10`}
                   </span>
                   <div className="ml-auto flex flex-wrap items-center gap-1.5">
                     {itemSource(item) === "seed" ? (
