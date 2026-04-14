@@ -13,6 +13,10 @@ export interface Item {
   name: string;
   alaCarteValue: number;
   fillFactor: number;
+  // Phase 1 (collab-and-quantitative-appetite): grams per unit drives the
+  // grams-based fullness model. Optional for back-compat with library
+  // items already persisted in Zustand before this release.
+  gramsPerUnit?: number;
   category?: string;
   sourceKind?: PriceSource;
   sourceRef?: string;
@@ -21,6 +25,9 @@ export interface Item {
 export interface EatenEntry {
   itemId: ItemId;
   units: number;
+  // Phase 1: optional direct grams override. When set, it wins over
+  // `units * item.gramsPerUnit` in computeFullness.
+  grams?: number;
 }
 
 export interface Session {
@@ -28,6 +35,9 @@ export interface Session {
   restaurantName?: string;
   buffetPrice: number;
   appetiteBudget: number;
+  // Phase 1: grams-based budget target. null = user opted out
+  // ("skip, I'll eyeball it"). undefined = legacy pre-grams session.
+  appetiteBudgetGrams?: number | null;
   library: Item[];
   eaten: EatenEntry[];
   startedAt: number;
@@ -84,6 +94,9 @@ export interface SessionRecord {
   clientSessionId: string; // the draft Session.id from Zustand — idempotency key
   buffetPrice: number;
   appetiteBudget: number;
+  // Phase 1 (collab-and-quantitative-appetite): grams-based budget. null
+  // when the user opted out; undefined when the session predates grams.
+  appetiteBudgetGrams?: number | null;
   library: Item[]; // snapshot at finish time
   eaten: EatenEntry[]; // snapshot at finish time
   totalEatenValue: number; // denormalized for fast stats

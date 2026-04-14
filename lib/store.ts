@@ -31,6 +31,9 @@ interface AyceStore {
     restaurantName?: string;
     buffetPrice: number;
     appetiteBudget: number;
+    // Phase 1 (collab-and-quantitative-appetite): optional grams-based
+    // budget. null = user opted out ("skip, I'll eyeball it").
+    appetiteBudgetGrams?: number | null;
     cityTier?: CityTier;
     resolvedPlace?: ResolvedPlace;
   }) => void;
@@ -41,7 +44,15 @@ interface AyceStore {
   setResolvedPlace: (place: ResolvedPlace | undefined) => void;
   addItemToLibrary: (item: Omit<Item, "id">) => void;
   removeItemFromLibrary: (id: ItemId) => void;
-  logEaten: (itemId: ItemId, units: number) => void;
+  // Phase 1: optional third `grams` parameter records a direct mass for
+  // this entry, overriding units × item.gramsPerUnit in computeFullness.
+  // Aggregation is asymmetric: `units` is ADDITIVE across repeated calls
+  // on the same itemId, while `grams`, when provided, REPLACES the prior
+  // value. Callers that mix-mode log the same item (unit bump + gram
+  // weigh-in) must therefore treat the stored grams as "mass of the most
+  // recently weighed portion", not "total mass across all units" — Phase
+  // 3 UI should surface this so users do not conflate the two.
+  logEaten: (itemId: ItemId, units: number, grams?: number) => void;
   clearEaten: () => void;
   finishMeal: () => void;
   resumeMeal: () => void;
@@ -59,6 +70,7 @@ export const useAyceStore = create<AyceStore>()(
         restaurantName,
         buffetPrice,
         appetiteBudget,
+        appetiteBudgetGrams,
         cityTier,
         resolvedPlace,
       }) =>
@@ -68,6 +80,7 @@ export const useAyceStore = create<AyceStore>()(
             restaurantName,
             buffetPrice,
             appetiteBudget,
+            appetiteBudgetGrams,
             cityTier,
             resolvedPlace,
             library: [],
@@ -105,7 +118,7 @@ export const useAyceStore = create<AyceStore>()(
               }
             : state
         ),
-      logEaten: (itemId, units) =>
+      logEaten: (itemId, units, grams) =>
         set((state) => {
           if (!state.session) return state;
           const existing = state.session.eaten.find((e) => e.itemId === itemId);
@@ -116,10 +129,18 @@ export const useAyceStore = create<AyceStore>()(
               nextUnits === 0
                 ? state.session.eaten.filter((e) => e.itemId !== itemId)
                 : state.session.eaten.map((e) =>
-                    e.itemId === itemId ? { ...e, units: nextUnits } : e
+                    e.itemId === itemId
+                      ? grams === undefined
+                        ? { ...e, units: nextUnits }
+                        : { ...e, units: nextUnits, grams }
+                      : e,
                   );
           } else if (units > 0) {
-            nextEaten = [...state.session.eaten, { itemId, units }];
+            const entry: EatenEntry =
+              grams === undefined
+                ? { itemId, units }
+                : { itemId, units, grams };
+            nextEaten = [...state.session.eaten, entry];
           } else {
             return state;
           }
