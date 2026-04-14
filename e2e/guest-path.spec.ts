@@ -32,7 +32,10 @@ test.describe("happy path", () => {
     // Pick the premium city tier so seeded prices are visibly adjusted
     // upward — this lets a later assertion prove the multiplier applied.
     await page.getByLabel(/city tier/i).selectOption("metro-premium");
-    await page.getByLabel(/appetite budget/i).fill("25");
+    // Phase 2: appetite budget is now a preset-chip group. Pick "Typical"
+    // (1200 g) — store writes appetiteBudgetGrams=1200 and legacy
+    // appetiteBudget=50.
+    await page.getByRole("button", { name: /^Typical/ }).click();
     await page.getByRole("button", { name: "Start session" }).click();
 
     // Submit redirects to /library.
@@ -63,12 +66,12 @@ test.describe("happy path", () => {
     await addLibraryItem(page, {
       name: "mystery buffet item xyz",
       value: "12",
-      fillFactor: 4,
+      grams: 120,
     });
     await addLibraryItem(page, {
       name: "salad",
       value: "3",
-      fillFactor: 1,
+      grams: 30,
     });
 
     // Confirm all three items are in the library before moving on. The
@@ -180,14 +183,16 @@ test.describe("happy path", () => {
 interface LibraryItemInput {
   name: string;
   value: string;
-  fillFactor: number;
+  grams: number;
 }
 
-// Opens the Add-item dialog, fills the form, adjusts the fill-factor
-// slider from its default of 5 via arrow keys, and submits.
+// Opens the Add-item dialog, fills the form (name, à la carte value,
+// grams per unit), and submits. Phase 2: the 1–10 fill-factor slider
+// was replaced by a numeric grams-per-unit input; the legacy fillFactor
+// is derived on submit via Math.round(grams/30), clamped to [1,10].
 async function addLibraryItem(
   page: Page,
-  { name, value, fillFactor }: LibraryItemInput
+  { name, value, grams }: LibraryItemInput
 ): Promise<void> {
   await page.getByRole("button", { name: "Add item" }).click();
 
@@ -199,19 +204,7 @@ async function addLibraryItem(
 
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel(/à la carte value/i).fill(value);
-
-  // Slider default is 5; nudge with arrow keys to reach the target.
-  // The base-ui Slider renders a nested <input type="range">, which is
-  // what getByRole('slider') resolves to.
-  const slider = dialog.getByRole("slider");
-  await slider.focus();
-  const delta = fillFactor - 5;
-  const key = delta < 0 ? "ArrowLeft" : "ArrowRight";
-  for (let i = 0; i < Math.abs(delta); i++) {
-    await page.keyboard.press(key);
-  }
-  // Confirm the live readout matches before submitting.
-  await expect(dialog.getByText(`${fillFactor} / 10`)).toBeVisible();
+  await dialog.getByLabel(/grams per unit/i).fill(String(grams));
 
   await dialog.getByRole("button", { name: "Add to library" }).click();
   await expect(dialog).toBeHidden();
