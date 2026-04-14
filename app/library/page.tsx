@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
+import {
+  addSharedLibraryItem,
+  removeSharedLibraryItem,
+} from "@/app/actions/shared-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +36,8 @@ import {
 import { itemSource } from "@/lib/items";
 import { adjustSeedRange, tierMultiplier } from "@/lib/pricing";
 import { useAyceStore } from "@/lib/store";
-import type { PriceSource } from "@/lib/types";
+import type { Item, ItemId, PriceSource } from "@/lib/types";
+import { useSharedSession } from "@/lib/use-shared-session";
 
 interface ItemFormErrors {
   name?: string;
@@ -53,11 +58,42 @@ function deriveFillFactor(gramsPerUnit: number): number {
 
 export default function LibraryPage() {
   const router = useRouter();
-  const session = useAyceStore((state) => state.session);
+  const soloSession = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
-  const addItemToLibrary = useAyceStore((state) => state.addItemToLibrary);
-  const removeItemFromLibrary = useAyceStore(
+  const soloAddItem = useAyceStore((state) => state.addItemToLibrary);
+  const soloRemoveItem = useAyceStore(
     (state) => state.removeItemFromLibrary
+  );
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+
+  const shared = useSharedSession(sharedSessionId);
+  const session = sharedSessionId ? shared.session : soloSession;
+
+  const addItemToLibrary = useCallback(
+    (item: Omit<Item, "id">) => {
+      if (!sharedSessionId) {
+        soloAddItem(item);
+        return;
+      }
+      const withId: Item = { ...item, id: crypto.randomUUID() };
+      void addSharedLibraryItem({ sessionId: sharedSessionId, item: withId })
+        .then(() => shared.refresh())
+        .catch(() => void 0);
+    },
+    [sharedSessionId, soloAddItem, shared],
+  );
+
+  const removeItemFromLibrary = useCallback(
+    (id: ItemId) => {
+      if (!sharedSessionId) {
+        soloRemoveItem(id);
+        return;
+      }
+      void removeSharedLibraryItem({ sessionId: sharedSessionId, itemId: id })
+        .then(() => shared.refresh())
+        .catch(() => void 0);
+    },
+    [sharedSessionId, soloRemoveItem, shared],
   );
 
   const cityTier = session?.cityTier;
@@ -85,11 +121,19 @@ export default function LibraryPage() {
 
   // Redirect guard: no session → /setup. Run after hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
+  // Shared mode: wait for the first poll to resolve before bouncing.
   useEffect(() => {
-    if (hasHydrated && session === null) {
+    if (!hasHydrated) return;
+    if (sharedSessionId) {
+      if (!shared.loading && shared.session === null) {
+        router.replace("/setup");
+      }
+      return;
+    }
+    if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, router]);
+  }, [hasHydrated, session, sharedSessionId, shared.loading, shared.session, router]);
 
   const summary = useMemo(() => {
     const lib = session?.library ?? [];

@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { finishAndSaveSession } from "@/app/actions/sessions";
+import {
+  finalizeSharedSession,
+  logSharedEaten,
+} from "@/app/actions/shared-session";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,13 +21,36 @@ import { useAyceStore } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import type { Item, ItemId } from "@/lib/types";
 import { useAnimatedNumber } from "@/lib/use-animated-number";
+import { useSharedSession } from "@/lib/use-shared-session";
 
 export default function TrackerPage() {
   const router = useRouter();
-  const session = useAyceStore((state) => state.session);
+  const soloSession = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
-  const logEaten = useAyceStore((state) => state.logEaten);
+  const soloLogEaten = useAyceStore((state) => state.logEaten);
   const finishMeal = useAyceStore((state) => state.finishMeal);
+  const sharedSessionId = useAyceStore((state) => state.sharedSessionId);
+
+  const shared = useSharedSession(sharedSessionId);
+  const session = sharedSessionId ? shared.session : soloSession;
+
+  const logEaten = useCallback(
+    (itemId: ItemId, units: number, grams?: number) => {
+      if (!sharedSessionId) {
+        soloLogEaten(itemId, units, grams);
+        return;
+      }
+      // Shared mode: each call writes a new row with the caller's user_id
+      // derived from auth.uid() inside the server action (invariant #14).
+      // `units` may be negative for −1 buttons — RLS/check allows it only
+      // through a delete path, so we block negatives at the UI layer.
+      if (units <= 0) return;
+      void logSharedEaten({ sessionId: sharedSessionId, itemId, units, grams })
+        .then(() => shared.refresh())
+        .catch(() => void 0);
+    },
+    [sharedSessionId, soloLogEaten, shared],
+  );
 
   // Track the current auth state so the finish handler can branch between
   // the guest flow (local-only, route to /result) and the signed-in flow
@@ -50,11 +77,20 @@ export default function TrackerPage() {
 
   // Redirect guard: no session → /setup. Wait for hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
+  // In shared mode we wait until the first poll resolves — shared.loading
+  // prevents bouncing while the session row is being fetched.
   useEffect(() => {
-    if (hasHydrated && session === null) {
+    if (!hasHydrated) return;
+    if (sharedSessionId) {
+      if (!shared.loading && shared.session === null) {
+        router.replace("/setup");
+      }
+      return;
+    }
+    if (session === null) {
       router.replace("/setup");
     }
-  }, [hasHydrated, session, router]);
+  }, [hasHydrated, session, sharedSessionId, shared.loading, shared.session, router]);
 
   const totals = useMemo(() => {
     if (!session) {
@@ -136,6 +172,28 @@ export default function TrackerPage() {
   async function handleFinish() {
     if (!session) return;
     if (finishPending) return;
+
+    // Shared-session (Phase 6): finalize via the owner-only server action,
+    // route to /history/[id]. Collaborators can't finalize — the server
+    // action returns "not_owner". We surface that as an error without
+    // locking up the UI.
+    if (sharedSessionId) {
+      setFinishPending(true);
+      setFinishError(null);
+      const result = await finalizeSharedSession({ sessionId: sharedSessionId });
+      if (!result.ok) {
+        setFinishPending(false);
+        setFinishError(
+          result.error === "not_owner"
+            ? "Only the session owner can finish this meal."
+            : "Could not save this meal. Please try again.",
+        );
+        return;
+      }
+      finishMeal();
+      router.push(`/history/${result.data.id}`);
+      return;
+    }
 
     // Guest (not signed in): keep the pre-Phase-3 behavior — local-only
     // finish, route to /result. Phase 6 promotes these to the DB after
