@@ -49,7 +49,6 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
   const session = useAyceStore((state) => state.session);
   const hasHydrated = useAyceStore((state) => state._hasHydrated);
 
-  const finishedCount = useAyceStore((s) => s.finishedSessions.length);
   const sessionActive = hasHydrated && session !== null;
   const signedIn = user !== null;
 
@@ -123,22 +122,6 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
               </li>
             );
           })}
-          {signedIn && hasHydrated && finishedCount > 0 ? (
-            <li key="/import">
-              <Link
-                href="/import"
-                aria-current={pathname === "/import" ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 min-w-10 items-center justify-center rounded-full px-4 font-[var(--font-display)] text-[0.9375rem] font-medium transition-colors",
-                  pathname === "/import"
-                    ? "bg-[#f4f4f4] text-[#191c1f] dark:bg-[#262a2e] dark:text-white"
-                    : "text-[#505a63] hover:text-[#191c1f] hover:bg-[#f4f4f4] dark:text-[#8d969e] dark:hover:bg-[#262a2e] dark:hover:text-white",
-                )}
-              >
-                Import
-              </Link>
-            </li>
-          ) : null}
           <li className="ml-1">
             {signedIn ? (
               <div className="relative" ref={menuRef}>
