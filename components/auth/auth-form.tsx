@@ -12,6 +12,17 @@ type AuthMode = "login" | "signup";
 
 interface AuthFormProps {
   mode: AuthMode;
+  // URL to redirect to after successful auth. Accepted only when it's a
+  // same-origin relative path (starts with "/", not "//") — otherwise we
+  // fall back to "/". This is the landing-page handoff for invite links
+  // (/join?token=…) and any future deep-link entry points.
+  next?: string;
+}
+
+function safeNext(raw: string | undefined): string {
+  if (typeof raw !== "string") return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
 }
 
 interface FieldErrors {
@@ -38,10 +49,18 @@ const COPY = {
   },
 } as const;
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, next }: AuthFormProps) {
   const copy = COPY[mode];
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const nextPath = safeNext(next);
+  // Preserve ?next= when toggling between login and signup, so a user who
+  // clicks the invite link, lands on /login?next=…, and then flips to the
+  // signup tab still returns to the invite after creating the account.
+  const footerHref =
+    nextPath !== "/"
+      ? `${copy.footerHref}?next=${encodeURIComponent(nextPath)}`
+      : copy.footerHref;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,7 +103,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           setFormError("Invalid email or password.");
           return;
         }
-        router.replace("/");
+        router.replace(nextPath);
         router.refresh();
         return;
       }
@@ -92,11 +111,18 @@ export function AuthForm({ mode }: AuthFormProps) {
       // mode === "signup"
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
+      // Forward `next` through the email confirmation link so the user
+      // lands back on the invite URL after clicking the email. /auth/confirm
+      // already honors ?next= with a same-origin check of its own.
+      const confirmUrl =
+        nextPath !== "/"
+          ? `${origin}/auth/confirm?next=${encodeURIComponent(nextPath)}`
+          : `${origin}/auth/confirm`;
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${origin}/auth/confirm`,
+          emailRedirectTo: confirmUrl,
         },
       });
       if (error) {
@@ -111,7 +137,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         );
         return;
       }
-      router.replace("/");
+      router.replace(nextPath);
       router.refresh();
     });
   }
@@ -213,7 +239,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       <p className="mt-6 text-center text-sm text-[#505a63] dark:text-[#8d969e]">
         {copy.footer}{" "}
         <Link
-          href={copy.footerHref}
+          href={footerHref}
           className="font-medium text-[#191c1f] underline-offset-4 hover:underline dark:text-white"
         >
           {copy.footerLinkLabel}
