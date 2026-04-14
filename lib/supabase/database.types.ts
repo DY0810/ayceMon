@@ -55,7 +55,8 @@ export type Database = {
           id: string
           library: Json
           margin: number
-          restaurant_id: string
+          restaurant_id: string | null
+          restaurant_name: string | null
           started_at: string
           total_eaten_value: number
           user_id: string
@@ -71,7 +72,8 @@ export type Database = {
           id?: string
           library: Json
           margin: number
-          restaurant_id: string
+          restaurant_id?: string | null
+          restaurant_name?: string | null
           started_at: string
           total_eaten_value: number
           user_id: string
@@ -87,7 +89,8 @@ export type Database = {
           id?: string
           library?: Json
           margin?: number
-          restaurant_id?: string
+          restaurant_id?: string | null
+          restaurant_name?: string | null
           started_at?: string
           total_eaten_value?: number
           user_id?: string
