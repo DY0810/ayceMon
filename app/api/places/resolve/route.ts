@@ -10,7 +10,7 @@ interface ResolveBody {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limit = rateLimit(ip);
+  const limit = await rateLimit(ip);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "rate_limited" },
