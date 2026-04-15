@@ -8,7 +8,7 @@ Track whether you're beating the buffet. Start a session, build a library of ite
 
 Signed-in users can turn any session into a **shared session**: the owner mints a short-lived invite link from the Share drawer, collaborators open the link, authenticate, and log their *own* eaten entries against the same session. The owner can finalize when everyone's done — the result page on `/history/[id]` shows per-user attribution.
 
-![Share drawer](docs/screenshots/share-drawer.png)
+
 
 ### Grams-based appetite model
 
