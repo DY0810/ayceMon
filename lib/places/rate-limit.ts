@@ -1,59 +1,27 @@
 import "server-only";
 
-// DEV-ONLY rate limit. Per-instance in-memory Map leaks on serverless cold
-// starts and is trivially evadable by rotating IPs. Before public launch,
-// move to Upstash/Vercel KV (see Phase 7 polish notes in the plan).
+import {
+  rateLimit as baseRateLimit,
+  type RateLimitResult,
+} from "@/lib/rate-limit";
 
-interface Bucket {
-  count: number;
-  windowStart: number;
-}
+// Per-IP rate limit for the Places API routes. Backed by Upstash when the
+// UPSTASH_REDIS_REST_URL/_TOKEN env vars are set in production; falls back
+// to per-instance memory for local dev and tests. The limits live here so
+// the route handlers read a single source of truth.
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 60;
+const PLACES_WINDOW_MS = 60_000;
+const PLACES_MAX_PER_WINDOW = 60;
 
-const buckets = new Map<string, Bucket>();
-let lastPruneTime = Date.now();
-const PRUNE_INTERVAL_MS = 5 * 60_000; // prune stale entries every 5 minutes
+export type { RateLimitResult };
 
-function pruneStale(now: number) {
-  if (now - lastPruneTime < PRUNE_INTERVAL_MS) return;
-  lastPruneTime = now;
-  for (const [key, bucket] of buckets) {
-    if (now - bucket.windowStart >= WINDOW_MS) buckets.delete(key);
-  }
-}
-
-export interface RateLimitResult {
-  ok: boolean;
-  remaining: number;
-  retryAfterSeconds: number;
-}
-
-export function rateLimit(ip: string): RateLimitResult {
-  const now = Date.now();
-  pruneStale(now);
-  const bucket = buckets.get(ip);
-
-  if (!bucket || now - bucket.windowStart >= WINDOW_MS) {
-    buckets.set(ip, { count: 1, windowStart: now });
-    return { ok: true, remaining: MAX_REQUESTS_PER_WINDOW - 1, retryAfterSeconds: 0 };
-  }
-
-  if (bucket.count >= MAX_REQUESTS_PER_WINDOW) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((WINDOW_MS - (now - bucket.windowStart)) / 1000),
-    );
-    return { ok: false, remaining: 0, retryAfterSeconds };
-  }
-
-  bucket.count += 1;
-  return {
-    ok: true,
-    remaining: MAX_REQUESTS_PER_WINDOW - bucket.count,
-    retryAfterSeconds: 0,
-  };
+export async function rateLimit(ip: string): Promise<RateLimitResult> {
+  return baseRateLimit({
+    key: ip,
+    prefix: "places",
+    limit: PLACES_MAX_PER_WINDOW,
+    windowMs: PLACES_WINDOW_MS,
+  });
 }
 
 export function getClientIp(req: Request): string {

@@ -1045,7 +1045,7 @@ export async function joinSharedSession(
   // throttling independently of network.
   const h = await headers();
   const ip = getClientIpFromHeaders(h);
-  const rl = rateLimitInviteJoin(ip, user.id);
+  const rl = await rateLimitInviteJoin(ip, user.id);
   if (!rl.ok) return { ok: false, error: "rate_limited" };
 
   // RPC bypasses RLS on the collaborator + invite writes by design (see

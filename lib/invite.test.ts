@@ -64,72 +64,73 @@ describe("rateLimitInviteJoin", () => {
     vi.useRealTimers();
   });
 
-  it("allows the first 10 joins from the same IP", () => {
+  it("allows the first 10 joins from the same IP", async () => {
     for (let i = 0; i < 10; i++) {
-      const result = rateLimitInviteJoin(IP);
+      const result = await rateLimitInviteJoin(IP);
       expect(result.ok).toBe(true);
       expect(result.remaining).toBe(9 - i);
     }
   });
 
-  it("blocks the 11th join from the same IP within the hour window", () => {
-    for (let i = 0; i < 10; i++) rateLimitInviteJoin(IP);
-    const blocked = rateLimitInviteJoin(IP);
+  it("blocks the 11th join from the same IP within the hour window", async () => {
+    for (let i = 0; i < 10; i++) await rateLimitInviteJoin(IP);
+    const blocked = await rateLimitInviteJoin(IP);
     expect(blocked.ok).toBe(false);
     expect(blocked.remaining).toBe(0);
     expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it("resets after the one-hour window elapses", () => {
-    for (let i = 0; i < 10; i++) rateLimitInviteJoin(IP);
-    expect(rateLimitInviteJoin(IP).ok).toBe(false);
+  it("resets after the one-hour window elapses", async () => {
+    for (let i = 0; i < 10; i++) await rateLimitInviteJoin(IP);
+    expect((await rateLimitInviteJoin(IP)).ok).toBe(false);
 
     // Advance past the hour window.
     vi.setSystemTime(new Date("2026-04-14T01:00:01Z"));
 
-    const afterReset = rateLimitInviteJoin(IP);
+    const afterReset = await rateLimitInviteJoin(IP);
     expect(afterReset.ok).toBe(true);
     expect(afterReset.remaining).toBe(9);
   });
 
-  it("tracks buckets independently per IP", () => {
-    for (let i = 0; i < 10; i++) rateLimitInviteJoin(IP);
-    expect(rateLimitInviteJoin(IP).ok).toBe(false);
+  it("tracks buckets independently per IP", async () => {
+    for (let i = 0; i < 10; i++) await rateLimitInviteJoin(IP);
+    expect((await rateLimitInviteJoin(IP)).ok).toBe(false);
 
     // A different IP is unaffected.
-    const other = rateLimitInviteJoin("198.51.100.42");
+    const other = await rateLimitInviteJoin("198.51.100.42");
     expect(other.ok).toBe(true);
     expect(other.remaining).toBe(9);
   });
 
   // Security review T5(c): per-account throttling independent of IP.
-  it("composes the bucket key with userId when provided", () => {
+  it("composes the bucket key with userId when provided", async () => {
     const USER_A = "11111111-1111-1111-1111-111111111111";
     const USER_B = "22222222-2222-2222-2222-222222222222";
 
     // User A from one IP burns their bucket.
-    for (let i = 0; i < 10; i++) rateLimitInviteJoin(IP, USER_A);
-    expect(rateLimitInviteJoin(IP, USER_A).ok).toBe(false);
+    for (let i = 0; i < 10; i++) await rateLimitInviteJoin(IP, USER_A);
+    expect((await rateLimitInviteJoin(IP, USER_A)).ok).toBe(false);
 
     // User B from the SAME IP has a separate bucket — attackers
     // sharing an IP cannot deplete each other's quota.
-    const userBFresh = rateLimitInviteJoin(IP, USER_B);
+    const userBFresh = await rateLimitInviteJoin(IP, USER_B);
     expect(userBFresh.ok).toBe(true);
     expect(userBFresh.remaining).toBe(9);
 
     // Critically: the same user rotating to a different IP is still
     // throttled by their per-user bucket.
-    for (let i = 0; i < 9; i++) rateLimitInviteJoin("198.51.100.99", USER_A);
-    const rotatedIp = rateLimitInviteJoin("198.51.100.200", USER_A);
+    for (let i = 0; i < 9; i++)
+      await rateLimitInviteJoin("198.51.100.99", USER_A);
+    const rotatedIp = await rateLimitInviteJoin("198.51.100.200", USER_A);
     expect(rotatedIp.ok).toBe(true); // first from this new ip+user combo
     // Now exhaust more from the rotated IP with the same user.
     for (let i = 0; i < 9; i++)
-      rateLimitInviteJoin("198.51.100.200", USER_A);
+      await rateLimitInviteJoin("198.51.100.200", USER_A);
     // Although the user had unused budget on OTHER ip+user buckets,
     // the rotated-ip+user bucket is now full. (This is a per-ip+user
     // key, so the user's total join rate across all IPs can still
     // exceed MAX, but any single ip+user combo is throttled.)
-    const finalBlock = rateLimitInviteJoin("198.51.100.200", USER_A);
+    const finalBlock = await rateLimitInviteJoin("198.51.100.200", USER_A);
     expect(finalBlock.ok).toBe(false);
   });
 });

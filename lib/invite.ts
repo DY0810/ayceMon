@@ -2,6 +2,12 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import {
+  __resetRateLimitForTests,
+  rateLimit as baseRateLimit,
+  type RateLimitResult,
+} from "@/lib/rate-limit";
+
 // Phase 7 (collab-and-quantitative-appetite): invite token mint + per-IP
 // rate limit for /join redemption.
 //
@@ -9,11 +15,8 @@ import { randomBytes } from "node:crypto";
 // (22 chars, no padding). They're opaque DB lookup keys — NOT JWTs — so
 // no session data is embedded in the wire format. See Appendix B #15.
 //
-// The rate limit mirrors the places/rate-limit.ts pattern: an in-memory
-// Map keyed by client IP, sliding-window counter, stale-entry prune.
-// DEV-ONLY — per-instance memory does not survive cold starts and is
-// trivially evadable by rotating IPs. Before public launch, move to
-// Upstash/Vercel KV (see PLAN.md Phase 7 polish notes).
+// The join rate limit is shared through lib/rate-limit.ts so it runs on
+// Upstash Redis in production and the in-memory fallback locally.
 
 // ---------------------------------------------------------------------------
 // Token generator
@@ -29,39 +32,18 @@ export function generateInviteToken(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Per-IP rate limit for /join redemption
+// Per-IP / per-IP+user rate limit for /join redemption
 // ---------------------------------------------------------------------------
 
-interface Bucket {
-  count: number;
-  windowStart: number;
-}
+const INVITE_WINDOW_MS = 60 * 60_000; // 1 hour
+const INVITE_MAX_PER_WINDOW = 10;
 
-const WINDOW_MS = 60 * 60_000; // 1 hour
-const MAX_JOINS_PER_WINDOW = 10;
+export type { RateLimitResult };
 
-const buckets = new Map<string, Bucket>();
-let lastPruneTime = Date.now();
-const PRUNE_INTERVAL_MS = 5 * 60_000;
-
-function pruneStale(now: number) {
-  if (now - lastPruneTime < PRUNE_INTERVAL_MS) return;
-  lastPruneTime = now;
-  for (const [key, bucket] of buckets) {
-    if (now - bucket.windowStart >= WINDOW_MS) buckets.delete(key);
-  }
-}
-
-export interface RateLimitResult {
-  ok: boolean;
-  remaining: number;
-  retryAfterSeconds: number;
-}
-
-export function rateLimitInviteJoin(
+export async function rateLimitInviteJoin(
   ip: string,
   userId?: string | null,
-): RateLimitResult {
+): Promise<RateLimitResult> {
   // Composite bucket key — `ip:userId` when we have both. Keys IP-only
   // if the caller lacks an authenticated identity (shouldn't happen at
   // the /join call site — requireUser runs first — but the helper is
@@ -71,38 +53,19 @@ export function rateLimitInviteJoin(
   // otherwise bypass the per-IP cap. With `${ip}:${userId}` included,
   // the per-account throttle applies independently of network.
   const key = userId ? `${ip}:${userId}` : ip;
-  const now = Date.now();
-  pruneStale(now);
-  const bucket = buckets.get(key);
-
-  if (!bucket || now - bucket.windowStart >= WINDOW_MS) {
-    buckets.set(key, { count: 1, windowStart: now });
-    return { ok: true, remaining: MAX_JOINS_PER_WINDOW - 1, retryAfterSeconds: 0 };
-  }
-
-  if (bucket.count >= MAX_JOINS_PER_WINDOW) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((WINDOW_MS - (now - bucket.windowStart)) / 1000),
-    );
-    return { ok: false, remaining: 0, retryAfterSeconds };
-  }
-
-  bucket.count += 1;
-  return {
-    ok: true,
-    remaining: MAX_JOINS_PER_WINDOW - bucket.count,
-    retryAfterSeconds: 0,
-  };
+  return baseRateLimit({
+    key,
+    prefix: "invite",
+    limit: INVITE_MAX_PER_WINDOW,
+    windowMs: INVITE_WINDOW_MS,
+  });
 }
 
-// Test-only: clear the in-memory buckets between test cases so IP state
-// from one test doesn't leak into the next. Exported with a __ prefix
-// and an explicit "ForTests" suffix so production callers cannot mistake
-// it for a supported API.
+// Test-only: clear the in-memory fallback state between test cases so IP
+// state from one test doesn't leak into the next. Re-exports the shared
+// reset so existing call sites keep working after the refactor.
 export function __resetInviteRateLimitForTests(): void {
-  buckets.clear();
-  lastPruneTime = Date.now();
+  __resetRateLimitForTests();
 }
 
 // ---------------------------------------------------------------------------
