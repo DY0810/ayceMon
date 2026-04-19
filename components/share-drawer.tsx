@@ -223,7 +223,7 @@ export function ShareDrawer({
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="text-xs font-medium tracking-[0.01em] text-muted-foreground">
             Invited so far ({collaborators.length})
           </p>
           <ul className="flex flex-col gap-1 text-sm">
