@@ -166,7 +166,7 @@ export default async function StatsPage() {
                       <td className="py-3 pr-4">
                         <Link
                           href={`/history/by-restaurant/${rs.restaurantId}`}
-                          className="font-medium text-[#191c1f] hover:underline dark:text-white"
+                          className="font-medium text-foreground hover:underline"
                         >
                           {rs.restaurantName}
                         </Link>
