@@ -4,8 +4,12 @@ metadata:
   name: aycemon-ingress
   namespace: aycemon
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Staging until a public hostname is wired. See
+    # k8s/cert-manager/cluster-issuer.yaml for the activation checklist
+    # before flipping to letsencrypt-prod.
+    cert-manager.io/cluster-issuer: letsencrypt-staging
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:

@@ -54,6 +54,17 @@ kubectl --context "$KUBE_CONTEXT" create secret generic "$SECRET_NAME" \
 # Locally we load images straight into the kind node (no registry pull), so
 # auth is unused — but kubelet logs a stream of warnings if the named secret
 # does not exist. A placeholder docker-registry secret silences that noise.
+#
+# HARD GUARD: only apply the placeholder when KUBE_CONTEXT is a kind-* context.
+# An operator who runs this script against a production context with a custom
+# KUBE_CONTEXT= override would otherwise overwrite the real ghcr-pull-secret
+# with bogus creds and cause the next `imagePullPolicy: Always` restart to
+# fail with ImagePullBackOff. See docs/k8s-runbook.md §7 for the prod procedure.
+if [[ "$KUBE_CONTEXT" != kind-* ]]; then
+  echo "==> Skipping placeholder ghcr-pull-secret — '$KUBE_CONTEXT' is not a kind context"
+  echo "    (use docs/k8s-runbook.md §7 to rotate the real image pull secret)"
+  exit 0
+fi
 echo "==> Writing placeholder Secret $NAMESPACE/ghcr-pull-secret (local dev only)"
 kubectl --context "$KUBE_CONTEXT" create secret docker-registry ghcr-pull-secret \
   --namespace "$NAMESPACE" \

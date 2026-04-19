@@ -1,0 +1,77 @@
+# FQDN-tight egress for ayceMon — applies only on clusters running Cilium.
+#
+# Vanilla Kubernetes NetworkPolicy (k8s/networkpolicy.yaml) cannot restrict
+# egress by hostname because the policy engine sees only L3/L4. Cilium
+# snoops DNS responses and pins the resolved IP set to the policy, so
+# `toFQDNs` is enforceable.
+#
+# APPLY ALONGSIDE (not instead of) k8s/networkpolicy.yaml. Both must be
+# permissive enough for traffic to pass; Cilium AND-s the two.
+#
+# Prerequisite:
+#   - Cilium CNI installed with `--set hubble.relay.enabled=true` recommended.
+#   - CiliumNetworkPolicy CRD available: `kubectl get crd ciliumnetworkpolicies.cilium.io`
+#
+# Kind note: kindnet is the default CNI and does NOT support CiliumNetworkPolicy.
+# To test this file on kind, create the cluster with `--config k8s/kind/config.yaml`,
+# disable kindnet, and install Cilium via `cilium install --version 1.16.x`.
+# Production clusters on GKE / EKS / AKS can enable Cilium Dataplane V2.
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: aycemon-egress-fqdn
+  namespace: aycemon
+spec:
+  endpointSelector:
+    matchLabels:
+      app: aycemon
+  egress:
+    # DNS — must be allowed BEFORE any toFQDNs rule so Cilium learns the
+    # name→IP mapping. The `rules.dns.matchPattern: "*"` is required; it
+    # governs which queries Cilium will intercept, not which are allowed.
+    #
+    # The `k8s:` prefix is Cilium's internal identity-label namespace
+    # (NOT a Kubernetes object label). Cilium translates pod labels
+    # `io.kubernetes.pod.namespace: kube-system` and `k8s-app: kube-dns`
+    # into these prefixed forms for policy evaluation. Do not "normalize"
+    # to `kubernetes.io/metadata.name` — that is the Kubernetes namespace
+    # label used in vanilla NetworkPolicy, not a Cilium identity label,
+    # and the selector would silently miss CoreDNS.
+    #
+    # On managed clusters (GKE Autopilot, EKS with VPC CNI+Cilium chaining,
+    # some OpenShift variants) the CoreDNS pod may carry a different
+    # label set — verify with `kubectl -n kube-system get pods -l k8s-app=kube-dns`
+    # before promoting this policy.
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            "k8s:k8s-app": kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    # Supabase — REST, GoTrue, Postgres REST, Storage.
+    - toFQDNs:
+        - matchPattern: "*.supabase.co"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # Upstash — Redis REST + TCP (both are HTTPS-wrapped).
+    - toFQDNs:
+        - matchPattern: "*.upstash.io"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    # Google Places API — canonical host only.
+    - toFQDNs:
+        - matchName: "places.googleapis.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
