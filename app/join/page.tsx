@@ -31,7 +31,7 @@ export default function JoinPage() {
 function JoinLoading() {
   return (
     <main className="mx-auto w-full max-w-md px-4 py-20 text-center">
-      <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+      <p className="text-sm tracking-[0.01em] text-muted-foreground">
         Joining session…
       </p>
     </main>

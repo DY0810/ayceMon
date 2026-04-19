@@ -113,7 +113,7 @@ export function JoinClient() {
     return (
       <main className="mx-auto w-full max-w-md px-4 py-20 text-center">
         <p
-          className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+          className="text-sm tracking-[0.01em] text-muted-foreground"
           aria-live="polite"
         >
           Joining session…
@@ -126,7 +126,7 @@ export function JoinClient() {
     return (
       <main className="mx-auto w-full max-w-md px-4 py-20 text-center">
         <p
-          className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+          className="text-sm tracking-[0.01em] text-muted-foreground"
           aria-live="polite"
         >
           You&apos;re in. Taking you to the tracker…
@@ -147,7 +147,7 @@ function JoinError({ code }: { code: JoinErrorCode }) {
           <CardTitle>{headline}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="text-sm tracking-[0.01em] text-muted-foreground">
             {body}
           </p>
           <div className="flex flex-col gap-2">
