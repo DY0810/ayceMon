@@ -61,13 +61,13 @@ export default function Home() {
     <main className="mx-auto w-full max-w-6xl px-4 py-20 lg:px-8 lg:py-32">
       <section className="flex flex-col gap-8">
         <h1
-          className="ayce-fade-up font-[var(--font-display)] text-5xl font-medium leading-none tracking-[-0.04em] text-[#191c1f] md:text-7xl lg:text-[112px] dark:text-white"
+          className="ayce-fade-up font-[var(--font-display)] text-5xl font-medium leading-none tracking-[-0.04em] text-foreground md:text-7xl lg:text-[112px]"
           style={{ animationDelay: "0ms" }}
         >
           Make your money<br />worth at AYCE.
         </h1>
         <p
-          className="ayce-fade-up max-w-2xl text-base leading-relaxed tracking-[0.01em] text-[#505a63] lg:text-lg dark:text-[#8d969e]"
+          className="ayce-fade-up max-w-2xl text-base leading-relaxed tracking-[0.01em] text-muted-foreground lg:text-lg"
           style={{ animationDelay: "80ms" }}
         >
           Enter the buffet price, build a menu of what&apos;s available, and
@@ -96,7 +96,7 @@ export default function Home() {
 
       <section id="how-it-works" className="mt-24 lg:mt-40">
         <h2
-          className="ayce-fade-up font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] md:text-5xl dark:text-white"
+          className="ayce-fade-up font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-foreground md:text-5xl"
           style={{ animationDelay: "240ms" }}
         >
           How it works
@@ -110,7 +110,7 @@ export default function Home() {
             >
               <CardHeader>
                 <div
-                  className="font-[var(--font-display)] text-5xl font-medium leading-none tracking-tight text-[#191c1f] dark:text-white"
+                  className="font-[var(--font-display)] text-5xl font-medium leading-none tracking-tight text-foreground"
                   aria-hidden="true"
                 >
                   {step.number}
