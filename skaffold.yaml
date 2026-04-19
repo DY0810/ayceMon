@@ -1,0 +1,59 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: aycemon
+
+# Build with the production Dockerfile so `make up` exercises the same image
+# the GitHub Actions pipeline ships. Skaffold rebuilds and reloads into kind
+# on file change; this is not Next.js HMR. For component-level iteration,
+# prefer `npm run dev` directly. Use the kind kit to validate prod-like
+# behaviour (standalone server, probes, ingress, network policy).
+build:
+  local:
+    push: false
+    useBuildkit: true
+  tagPolicy:
+    sha256: {}
+  artifacts:
+    - image: ghcr.io/dy0810/aycemon
+      docker:
+        dockerfile: Dockerfile
+        # NEXT_PUBLIC_* vars are baked in at build time. Skaffold reads them
+        # from the shell env — the Makefile sources .env.local before calling
+        # `skaffold run`/`dev`, so values flow through without being committed.
+        buildArgs:
+          NEXT_PUBLIC_SUPABASE_URL: "{{.NEXT_PUBLIC_SUPABASE_URL}}"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "{{.NEXT_PUBLIC_SUPABASE_ANON_KEY}}"
+
+manifests:
+  # `make up` owns the ingress controller install (via `make ingress`) so the
+  # bundle in k8s/kind/ingress-nginx.yaml is NOT listed here — re-applying it
+  # on every skaffold run would respawn the admission-webhook Job and slow
+  # the inner loop. The app's localhost Ingress is inside that bundle too,
+  # which is why `skaffold dev` without `make up` will not expose :8080.
+  # Production ingress.yaml (TLS + cert-manager) and hpa.yaml (needs
+  # metrics-server) are intentionally excluded — neither works on kind.
+  rawYaml:
+    - k8s/namespace.yaml
+    - k8s/configmap.yaml
+    - k8s/service.yaml
+    - k8s/deployment.yaml
+    - k8s/networkpolicy.yaml
+    - k8s/pdb.yaml
+
+deploy:
+  kubectl: {}
+  # Wait for the ingress-nginx admission webhook before applying any Ingress.
+  # Without this, `skaffold run` races the controller and the aycemon Ingress
+  # admission check can fail on cold clusters.
+  statusCheck: true
+  statusCheckDeadlineSeconds: 180
+
+portForward:
+  # Backup path if the ingress is ever broken — `skaffold dev --port-forward`
+  # will surface the app on localhost:3000 directly.
+  - resourceType: service
+    resourceName: aycemon-service
+    namespace: aycemon
+    port: 80
+    localPort: 3000
