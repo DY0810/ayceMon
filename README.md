@@ -54,6 +54,13 @@ GOOGLE_PLACES_API_KEY=<your-places-api-key>
    npx supabase gen types typescript --linked > lib/supabase/database.types.ts
    ```
 
+## Branded auth emails
+
+Auth email templates live in [`supabase/email-templates/`](supabase/email-templates/)
+and are wired for local dev via `supabase/config.toml`. The hosted project's
+Dashboard templates must be mirrored manually after any template change — see
+[`docs/auth-email.md`](docs/auth-email.md) for the mirror runbook.
+
 ## Google Places API Key
 
 1. Create a Google Cloud project and enable the **Places API (New)**.
