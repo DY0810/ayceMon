@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { EatenEntry, Item, Session } from "./types";
+import { aggregateContributors } from "./aggregate-contributors";
+import type { EatenEntry, Item, LiveContributor, Session } from "./types";
 
 // Phase 6 (collab-and-quantitative-appetite): client-side view of a
 // server-backed shared session. Polls /api/shared-session/[id] and
@@ -71,9 +72,23 @@ interface SharedSessionApi {
 export interface SharedSessionView {
   session: Session | null;
   collaborators: SharedSessionApi["collaborators"];
+  contributors: LiveContributor[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+}
+
+export interface UseSharedSessionOptions {
+  /** Optional user_id → display-name map (email local-part, etc.). Omitted
+   *  entries fall back to the first 8 chars of the user_id via shortUserId.
+   *  The hook intentionally does NOT fetch names itself — callers that need
+   *  them already own the `listCollaboratorNames` roundtrip.
+   *
+   *  IMPORTANT: pass a STABLE reference (wrap in useMemo or hoist to a
+   *  module constant). A fresh `new Map(...)` on every render makes the
+   *  `contributors` memo recompute on every parent render instead of only
+   *  on poll updates. It does NOT cause a refetch loop, but it wastes work. */
+  displayNameById?: ReadonlyMap<string, string>;
 }
 
 function mapApiToSession(data: SharedSessionApi): Session {
@@ -152,13 +167,21 @@ function mapApiToSession(data: SharedSessionApi): Session {
 
 export function useSharedSession(
   sharedSessionId: string | null,
+  options?: UseSharedSessionOptions,
 ): SharedSessionView {
   const [session, setSession] = useState<Session | null>(null);
   const [collaborators, setCollaborators] = useState<
     SharedSessionApi["collaborators"]
   >([]);
+  // `contributors` is derived from the same payload that feeds `session`
+  // (see fetchOnce below). We store the raw payload pieces needed by the
+  // aggregation, then fold `displayNameById` in via a `useMemo` so a change
+  // to the names map doesn't force a refetch. No second polling useEffect.
+  const [rawItems, setRawItems] = useState<SharedSessionApi["items"]>([]);
+  const [rawEntries, setRawEntries] = useState<SharedSessionApi["entries"]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(sharedSessionId));
   const [error, setError] = useState<string | null>(null);
+  const displayNameById = options?.displayNameById;
   // Latest-requested id. In-flight fetches close over a local `id` snapshot
   // and compare against this ref on resolve so a stale response can't write
   // over the state for a newer id.
@@ -190,6 +213,8 @@ export function useSharedSession(
       if (activeIdRef.current !== id) return;
       setSession(mapApiToSession(data));
       setCollaborators(data.collaborators);
+      setRawItems(data.items);
+      setRawEntries(data.entries);
       setError(null);
     } catch {
       if (activeIdRef.current === id) setError("fetch_failed");
@@ -203,6 +228,8 @@ export function useSharedSession(
     if (!sharedSessionId) {
       setSession(null);
       setCollaborators([]);
+      setRawItems([]);
+      setRawEntries([]);
       setLoading(false);
       setError(null);
       return;
@@ -230,5 +257,21 @@ export function useSharedSession(
     await fetchOnce(sharedSessionId);
   }, [sharedSessionId, fetchOnce]);
 
-  return { session, collaborators, loading, error, refresh };
+  const contributors = useMemo(
+    () =>
+      aggregateContributors(
+        { items: rawItems, entries: rawEntries, collaborators },
+        displayNameById,
+      ),
+    [rawItems, rawEntries, collaborators, displayNameById],
+  );
+
+  return {
+    session,
+    collaborators,
+    contributors,
+    loading,
+    error,
+    refresh,
+  };
 }
