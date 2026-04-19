@@ -255,11 +255,11 @@ export default function ResultPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
       <section aria-label="Result headline" className="mb-10 lg:mb-14">
-        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-none tracking-[-0.03em] text-[#191c1f] md:text-6xl lg:text-7xl dark:text-white">
+        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-none tracking-[-0.03em] text-foreground md:text-6xl lg:text-7xl">
           {headline}
         </h1>
         {session.restaurantName ? (
-          <p className="mt-4 text-sm tracking-[0.01em] text-[#505a63] lg:text-base dark:text-[#8d969e]">
+          <p className="mt-4 text-sm tracking-[0.01em] text-muted-foreground lg:text-base">
             {session.restaurantName}
           </p>
         ) : null}
@@ -270,13 +270,13 @@ export default function ResultPage() {
           aria-label="Eaten vs buffet price"
           className="mb-8 hidden lg:block"
         >
-          <div className="relative h-12 w-full overflow-hidden rounded-full bg-[#f4f4f4] lg:h-16 dark:bg-[#262a2e]">
+          <div className="relative h-12 w-full overflow-hidden rounded-full bg-secondary lg:h-16">
             <div
-              className="h-full bg-[#191c1f] transition-all duration-300 dark:bg-white"
+              className="h-full bg-foreground transition-all duration-300"
               style={{ width: `${fillPercent}%` }}
             />
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm tracking-[0.01em] tabular-nums text-[#505a63] dark:text-[#8d969e]">
+          <div className="mt-3 flex items-center justify-between text-sm tracking-[0.01em] tabular-nums text-muted-foreground">
             <span>${totalValue.toFixed(2)} eaten</span>
             <span>of ${buffetPrice.toFixed(2)} buffet</span>
           </div>
@@ -291,34 +291,34 @@ export default function ResultPage() {
           <CardContent>
             <dl className="flex w-full flex-col text-sm tabular-nums lg:text-base">
               <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 lg:first:border-t-0 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Total eaten</dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dt className="tracking-[0.01em] text-muted-foreground">Total eaten</dt>
+                <dd className="font-medium text-foreground">
                   ${totalValue.toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Buffet price</dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dt className="tracking-[0.01em] text-muted-foreground">Buffet price</dt>
+                <dd className="font-medium text-foreground">
                   ${buffetPrice.toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Margin</dt>
+                <dt className="tracking-[0.01em] text-muted-foreground">Margin</dt>
                 <dd
                   className={`font-semibold ${
                     !onTheLine && !marginIsPositive
-                      ? "text-[#e23b4a]"
-                      : "text-[#191c1f] dark:text-white"
+                      ? "text-destructive"
+                      : "text-foreground"
                   }`}
                 >
                   {formattedMargin}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                <dt className="tracking-[0.01em] text-muted-foreground">
                   Fullness
                 </dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dd className="font-medium text-foreground">
                   {fullnessLabel}
                 </dd>
               </div>
@@ -349,7 +349,7 @@ export default function ResultPage() {
           </CardHeader>
           <CardContent>
             {rows.length === 0 ? (
-              <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <p className="text-sm tracking-[0.01em] text-muted-foreground">
                 You didn&apos;t log anything this meal.
               </p>
             ) : groups.length > 0 ? (
@@ -360,10 +360,10 @@ export default function ResultPage() {
                     aria-label={`Logged by ${shortUserId(g.userId)}`}
                   >
                     <header className="flex items-baseline justify-between gap-2 pb-2">
-                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-[#191c1f] lg:text-base dark:text-white">
+                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-foreground lg:text-base">
                         {shortUserId(g.userId)}
                       </h3>
-                      <span className="text-sm font-semibold tabular-nums text-[#191c1f] dark:text-white">
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
                         ${g.subtotal.toFixed(2)}
                       </span>
                     </header>
@@ -378,34 +378,34 @@ export default function ResultPage() {
           <CardFooter className="lg:hidden">
             <dl className="flex w-full flex-col gap-2 text-sm tabular-nums">
               <div className="flex items-center justify-between gap-2">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Total eaten</dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dt className="tracking-[0.01em] text-muted-foreground">Total eaten</dt>
+                <dd className="font-medium text-foreground">
                   ${totalValue.toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Buffet price</dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dt className="tracking-[0.01em] text-muted-foreground">Buffet price</dt>
+                <dd className="font-medium text-foreground">
                   ${buffetPrice.toFixed(2)}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Margin</dt>
+                <dt className="tracking-[0.01em] text-muted-foreground">Margin</dt>
                 <dd
                   className={`font-semibold ${
                     !onTheLine && !marginIsPositive
-                      ? "text-[#e23b4a]"
-                      : "text-[#191c1f] dark:text-white"
+                      ? "text-destructive"
+                      : "text-foreground"
                   }`}
                 >
                   {formattedMargin}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                <dt className="tracking-[0.01em] text-muted-foreground">
                   Fullness
                 </dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dd className="font-medium text-foreground">
                   {fullnessLabel}
                 </dd>
               </div>
@@ -466,7 +466,7 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
   return (
     <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
       <thead>
-        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
+        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-muted-foreground lg:text-sm">
           <th scope="col" className="w-auto py-2 pr-2 font-medium">
             Item
           </th>
@@ -490,21 +490,21 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
             key={`${row.itemId}-${i}`}
             className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
           >
-            <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
+            <td className="py-2.5 pr-2 text-foreground break-words lg:py-3">
               {row.name}
             </td>
-            <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
+            <td className="py-2.5 px-2 text-right text-foreground lg:py-3">
               {formatUnits(row.units)}
             </td>
-            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+            <td className="py-2.5 px-2 text-right text-muted-foreground lg:py-3">
               {row.gramsDisplay === null
                 ? "—"
                 : formatGrams(row.gramsDisplay)}
             </td>
-            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+            <td className="py-2.5 px-2 text-right text-muted-foreground lg:py-3">
               ${row.perUnitValue.toFixed(2)}
             </td>
-            <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
+            <td className="py-2.5 pl-2 text-right font-medium text-foreground lg:py-3">
               ${row.lineTotal.toFixed(2)}
             </td>
           </tr>
