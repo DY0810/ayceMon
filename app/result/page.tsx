@@ -290,19 +290,19 @@ export default function ResultPage() {
           </CardHeader>
           <CardContent>
             <dl className="flex w-full flex-col text-sm tabular-nums lg:text-base">
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 lg:first:border-t-0 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4 lg:first:border-t-0">
                 <dt className="tracking-[0.01em] text-muted-foreground">Total eaten</dt>
                 <dd className="font-medium text-foreground">
                   ${totalValue.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
                 <dt className="tracking-[0.01em] text-muted-foreground">Buffet price</dt>
                 <dd className="font-medium text-foreground">
                   ${buffetPrice.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
                 <dt className="tracking-[0.01em] text-muted-foreground">Margin</dt>
                 <dd
                   className={`font-semibold ${
@@ -314,7 +314,7 @@ export default function ResultPage() {
                   {formattedMargin}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
                 <dt className="tracking-[0.01em] text-muted-foreground">
                   Fullness
                 </dt>
@@ -488,7 +488,7 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
         {rows.map((row, i) => (
           <tr
             key={`${row.itemId}-${i}`}
-            className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+            className="border-t border-border"
           >
             <td className="py-2.5 pr-2 text-foreground break-words lg:py-3">
               {row.name}

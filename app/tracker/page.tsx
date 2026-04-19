@@ -429,13 +429,13 @@ export default function TrackerPage() {
           </span>
         </div>
         <dl className="flex flex-col">
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
             <dt className="text-sm tracking-[0.01em] text-muted-foreground">Eaten</dt>
             <dd className="text-base font-semibold tabular-nums text-foreground">
               ${displayedTotal.toFixed(2)}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
             <dt className="text-sm tracking-[0.01em] text-muted-foreground">Margin</dt>
             <dd
               className={`text-base font-semibold tabular-nums ${
@@ -447,7 +447,7 @@ export default function TrackerPage() {
               {formattedMargin}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
             <dt className="text-sm tracking-[0.01em] text-muted-foreground">Fill</dt>
             <dd className="text-base font-semibold tabular-nums text-foreground">
               {fullnessLabel}

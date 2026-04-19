@@ -161,7 +161,7 @@ export default async function StatsPage() {
                   return (
                     <tr
                       key={rs.restaurantId}
-                      className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+                      className="border-t border-border"
                     >
                       <td className="py-3 pr-4">
                         <Link

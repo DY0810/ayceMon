@@ -212,7 +212,7 @@ export default async function HistoryDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
             <dl className="flex w-full flex-col text-sm tabular-nums lg:text-base">
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 lg:first:border-t-0 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4 lg:first:border-t-0">
                 <dt className="tracking-[0.01em] text-muted-foreground">
                   Total eaten
                 </dt>
@@ -220,7 +220,7 @@ export default async function HistoryDetailPage({ params }: PageProps) {
                   ${totalValue.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
                 <dt className="tracking-[0.01em] text-muted-foreground">
                   Buffet price
                 </dt>
@@ -228,7 +228,7 @@ export default async function HistoryDetailPage({ params }: PageProps) {
                   ${buffetPrice.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
                 <dt className="tracking-[0.01em] text-muted-foreground">
                   Margin
                 </dt>
@@ -345,7 +345,7 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
         {rows.map((r, i) => (
           <tr
             key={`${r.itemId}-${i}`}
-            className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+            className="border-t border-border"
           >
             <td className="py-2.5 pr-2 text-foreground break-words lg:py-3">
               {r.name}
