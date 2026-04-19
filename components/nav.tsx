@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Logo, Wordmark } from "@/components/brand/logo";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAyceStore } from "@/lib/store";
 
@@ -147,16 +149,18 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[rgba(25,28,31,0.08)] bg-white dark:border-white/10 dark:bg-[#191c1f]">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background">
       <nav
         aria-label="Primary"
         className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 lg:px-8"
       >
         <Link
           href="/"
-          className="font-[var(--font-display)] mr-4 text-xl font-medium tracking-tight text-[#191c1f] dark:text-white"
+          aria-label="ayceMon home"
+          className="mr-4 flex items-center text-foreground"
         >
-          ayceMon
+          <Logo className="size-6" />
+          <Wordmark className="ml-2 text-base" />
         </Link>
         <ul className="flex flex-1 items-center justify-end gap-1">
           {NAV_ITEMS.filter(isVisible).map((item) => {
@@ -171,8 +175,8 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
                   className={cn(
                     baseClasses,
                     isActive
-                      ? "bg-[#f4f4f4] text-[#191c1f] dark:bg-[#262a2e] dark:text-white"
-                      : "text-[#505a63] hover:text-[#191c1f] hover:bg-[#f4f4f4] dark:text-[#8d969e] dark:hover:bg-[#262a2e] dark:hover:text-white",
+                      ? "bg-secondary text-secondary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary",
                   )}
                 >
                   {item.label}
@@ -190,7 +194,7 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
                   aria-expanded={menuOpen}
                   aria-controls={menuPanelId}
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="inline-flex size-10 items-center justify-center rounded-full bg-[#191c1f] font-[var(--font-display)] text-xs font-semibold tracking-wide text-white transition-opacity hover:opacity-85 dark:bg-white dark:text-[#191c1f]"
+                  className="inline-flex size-10 items-center justify-center rounded-full bg-foreground font-[var(--font-display)] text-xs font-semibold tracking-wide text-background transition-opacity hover:opacity-85"
                 >
                   <span aria-hidden="true">{initialsFromEmail(user.email)}</span>
                   <span className="sr-only">Account menu for {user.email}</span>
@@ -200,23 +204,23 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
                     id={menuPanelId}
                     role="menu"
                     aria-labelledby={menuButtonId}
-                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-[16px] border border-[rgba(25,28,31,0.08)] bg-white py-2 shadow-lg dark:border-white/10 dark:bg-[#191c1f]"
+                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-[16px] border border-border bg-popover py-2 shadow-lg"
                   >
                     <div
-                      className="px-4 py-2 text-xs text-[#505a63] dark:text-[#8d969e]"
+                      className="px-4 py-2 text-xs text-muted-foreground"
                       aria-hidden="true"
                     >
                       Signed in as
-                      <div className="truncate text-sm font-medium text-[#191c1f] dark:text-white">
+                      <div className="truncate text-sm font-medium text-foreground">
                         {user.email}
                       </div>
                     </div>
-                    <div className="my-1 h-px bg-[rgba(25,28,31,0.06)] dark:bg-white/10" />
+                    <div className="my-1 h-px bg-border" />
                     <form action={signOutAction} role="none">
                       <button
                         type="submit"
                         role="menuitem"
-                        className="block w-full px-4 py-2 text-left text-sm text-[#191c1f] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-[#262a2e]"
+                        className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-secondary"
                       >
                         Sign out
                       </button>
@@ -228,7 +232,7 @@ export function NavClient({ user, signOutAction }: NavClientProps) {
               <Link
                 href="/login"
                 aria-current={pathname === "/login" ? "page" : undefined}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#191c1f] px-5 font-[var(--font-display)] text-[0.9375rem] font-medium text-white transition-opacity hover:opacity-85 dark:bg-white dark:text-[#191c1f]"
+                className={buttonVariants({ variant: "default", size: "default" })}
               >
                 Log in
               </Link>
