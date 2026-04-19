@@ -19,6 +19,26 @@ What distinguishes Revolut is its pill-everything button system. Every button us
 
 ## 2. Color Palette & Roles
 
+### Brand Accent — one color, one role
+
+ayceMon extends the monochrome core with **a single warm persimmon accent**. It appears on **exactly four surfaces** and nowhere else:
+
+1. The logo mark (`public/logo.png`; legacy `public/logo.svg` + `public/favicon.svg` carry `.ayce-logo-accent` for email/favicon fallbacks)
+2. The wordmark "Mon" suffix (`components/brand/logo.tsx` — `Wordmark`, uses `--accent-ink` for AAA)
+3. The primary CTA hover state (`components/ui/button.tsx` — `default` variant)
+4. The `ayce-win-pulse` keyframe ring (`app/globals.css`)
+
+Accent on a price, progress bar, chart axis, tabular-nums span, or any data surface is **a bug**. The monochrome product voice is preserved; the accent is a brand anchor, not a data signal.
+
+| Token | Light | Dark | Purpose |
+|-------|-------|------|---------|
+| `--accent` | `#F55A2B` | `#FF7A4A` | Brand fill — logo dot, CTA hover background, win-pulse ring |
+| `--accent-foreground` | `#FFFFFF` | `#191C1F` | Text on `--accent` surface (CTA hover label) |
+| `--accent-ink` | `#8B2D0A` | `#FFAD80` | AAA-legible text variant — wordmark "Mon", any accent text on canvas |
+| `--accent-subtle` | `rgba(245, 90, 43, 0.10)` | `rgba(255, 122, 74, 0.14)` | Win-pulse shadow ring, future hover-wash rows |
+
+**Why an `-ink` variant?** `#F55A2B` on white is 3.5:1 — below AA, let alone AAA. The darker `--accent-ink` (8.4:1 on white, 9.4:1 on `#191C1F`) is the text rendering of the same brand accent. It is not a state variant; do not introduce `-hover` / `-pressed` / `-2` tokens.
+
 ### Primary
 - **Revolut Dark** (`#191c1f`): Primary dark surface, button background, near-black text
 - **Pure White** (`#ffffff`): `--rui-color-action-label`, primary light surface
@@ -135,8 +155,11 @@ What distinguishes Revolut is its pill-everything button system. Every button us
 |-------|-----------|-----|
 | Flat (Level 0) | No shadow | Everything — Revolut uses zero shadows |
 | Focus | `0 0 0 0.125rem` ring | Accessibility focus |
+| Win pulse | `0 0 0 10px var(--accent-subtle)` at keyframe peak | `/tracker` moment when `totalEatenValue` crosses `buffetPrice` |
 
 **Shadow Philosophy**: Revolut uses ZERO shadows. Depth comes entirely from the dark/light section contrast and the generous whitespace between elements.
+
+**Single exception — `ayce-win-pulse`.** A one-shot 600 ms scale + brightness pulse now co-animates a persimmon `box-shadow` ring that grows outward and collapses. This is the only motion surface that renders a shadow and the only non-focus use of a ring. Keyframe lives in `app/globals.css` and is gated behind `prefers-reduced-motion`.
 
 ## 7. Do's and Don'ts
 
@@ -148,10 +171,12 @@ What distinguishes Revolut is its pill-everything button system. Every button us
 - Apply positive letter-spacing on Inter body text
 
 ### Don't
-- Don't use shadows — Revolut is flat by design
+- Don't use shadows — Revolut is flat by design (single exception: `ayce-win-pulse`, §6)
 - Don't use bold (700) for Aeonik Pro headings — 500 is the weight
 - Don't use small buttons — the generous padding is intentional
 - Don't apply semantic colors to marketing surfaces — they're for the product
+- **Don't apply `--accent` to a price, percentage, progress bar, chart element, or any tabular-nums span.** Accent on a data surface is a bug (see §2 "Brand Accent")
+- **Don't pair white text with `--accent` for wordmarks or long-form text** — use `--accent-ink` for AAA contrast. White-on-accent is OK for transient states (button hover label) only
 
 ## 8. Responsive Behavior
 

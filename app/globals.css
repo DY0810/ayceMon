@@ -30,6 +30,8 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-subtle: var(--accent-subtle);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -62,8 +64,12 @@
   --secondary-foreground: #191c1f;
   --muted: #f4f4f4;
   --muted-foreground: #505a63;
-  --accent: #f4f4f4;
-  --accent-foreground: #191c1f;
+  /* Brand accent — persimmon. One color, one role: logo mark, wordmark "Mon",
+     primary CTA hover layer, ayce-win-pulse ring. Never on data surfaces. */
+  --accent: #f55a2b;
+  --accent-foreground: #ffffff;
+  --accent-ink: #8b2d0a;       /* AAA-legible text variant (wordmark on light) */
+  --accent-subtle: rgba(245, 90, 43, 0.10);
   --destructive: #e23b4a;
   --border: rgba(25, 28, 31, 0.08);
   --input: rgba(25, 28, 31, 0.12);
@@ -97,8 +103,10 @@
   --secondary-foreground: #ffffff;
   --muted: #262a2e;
   --muted-foreground: #8d969e;
-  --accent: #262a2e;
-  --accent-foreground: #ffffff;
+  --accent: #ff7a4a;
+  --accent-foreground: #191c1f;
+  --accent-ink: #ffad80;       /* AAA-legible on dark canvas */
+  --accent-subtle: rgba(255, 122, 74, 0.14);
   --destructive: #e23b4a;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
@@ -147,20 +155,23 @@
     0% {
       transform: scale(1);
       filter: brightness(1);
+      box-shadow: 0 0 0 0 var(--accent-subtle);
     }
     35% {
       transform: scale(1.025);
       filter: brightness(1.15);
+      box-shadow: 0 0 0 10px var(--accent-subtle);
     }
     100% {
       transform: scale(1);
       filter: brightness(1);
+      box-shadow: 0 0 0 0 var(--accent-subtle);
     }
   }
   .ayce-win-pulse {
     animation: ayce-win-pulse 600ms ease-out 1;
     transform-origin: center;
-    will-change: transform, filter;
+    will-change: transform, filter, box-shadow;
   }
 
   /* Hero entrance: home page heading, paragraph, CTA, and step cards
