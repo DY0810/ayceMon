@@ -5,6 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
+import { aggregateContributors } from "@/lib/aggregate-contributors";
 import { requireUser } from "@/lib/auth/require-user";
 import { computeTotals } from "@/lib/calc";
 import {
@@ -16,6 +17,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import type {
   EatenEntry,
   Item,
+  LiveContributor,
   ResolvedPlace,
   SessionContributor,
   SharedSessionId,
@@ -1024,6 +1026,78 @@ export async function listCollaboratorNames(
       displayName: r.display_name,
     })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// listContributors — read-only, any collaborator. Returns the live per-user
+// breakdown for an in-flight shared session: valueEaten (always derived),
+// grams, unit count, and lastLoggedAt. Zero-entry collaborators appear as
+// zero rows so the UI can render "Alex · $0.00 · 0g" without a second call.
+//
+// RLS on the three read tables masks non-member access as empty rows, so a
+// non-collaborator sees an empty `[]` rather than a 403 from this layer.
+// The REST wrapper at /api/shared-session/:id/contributors keeps the same
+// semantics — matching the existing /api/shared-session/:id endpoint.
+//
+// This action is the reusable non-UI surface (debug tooling, future mobile,
+// server-side rendering). The production tracker UI reads `contributors`
+// off `useSharedSession` so there's exactly one heartbeat.
+// ---------------------------------------------------------------------------
+export async function listContributors(
+  sessionId: SharedSessionId,
+): Promise<ActionResult<LiveContributor[]>> {
+  // Intentional error-code divergence from the rest of this module:
+  // `invalid_session_id` (not `invalid_input`) is the contract the REST
+  // wrapper maps to HTTP 400. The plan calls this out explicitly so a
+  // debug tool reading /api/shared-session/<id>/contributors can tell a
+  // malformed UUID from a generic validation failure.
+  if (!isValidUuid(sessionId)) {
+    return { ok: false, error: "invalid_session_id" };
+  }
+
+  const { supabase } = await requireUser();
+
+  const [itemsRes, entriesRes, collabsRes, namesRes] = await Promise.all([
+    supabase
+      .from("shared_session_items")
+      .select("id, ala_carte_value, grams_per_unit")
+      .eq("session_id", sessionId),
+    supabase
+      .from("shared_session_entries")
+      .select("user_id, item_id, units, grams, logged_at")
+      .eq("session_id", sessionId),
+    supabase
+      .from("shared_session_collaborators")
+      .select("user_id, role")
+      .eq("session_id", sessionId),
+    supabase.rpc("get_shared_session_collaborator_names", {
+      p_session_id: sessionId,
+    }),
+  ]);
+
+  if (
+    itemsRes.error ||
+    entriesRes.error ||
+    collabsRes.error ||
+    namesRes.error
+  ) {
+    return { ok: false, error: "lookup_failed" };
+  }
+
+  const displayNameById = new Map<string, string>(
+    (namesRes.data ?? []).map((r) => [r.user_id, r.display_name]),
+  );
+
+  const contributors = aggregateContributors(
+    {
+      items: itemsRes.data ?? [],
+      entries: entriesRes.data ?? [],
+      collaborators: collabsRes.data ?? [],
+    },
+    displayNameById,
+  );
+
+  return { ok: true, data: contributors };
 }
 
 export async function joinSharedSession(

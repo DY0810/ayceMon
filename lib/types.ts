@@ -207,3 +207,19 @@ export interface SessionContributor {
   grams: number; // total grams logged by this user (null entries + unit×gpu)
   valueEaten: number; // total à-la-carte value attributed to this user
 }
+
+/** Live per-user breakdown for an in-flight shared session. Derived on every
+ *  poll from the raw `{ items, entries, collaborators }` payload by
+ *  `aggregateContributors`; never stored. `valueEaten` is always a function
+ *  of the current item prices, so edits to `shared_session_items` reflow
+ *  immediately on the next poll. Zero-entry collaborators still appear as
+ *  rows with all-zero totals and `lastLoggedAt = null`. */
+export interface LiveContributor {
+  userId: UserId;
+  displayName: string;
+  role: SharedSessionRole;
+  valueEaten: number;
+  grams: number;
+  unitCount: number;
+  lastLoggedAt: string | null; // ISO
+}
