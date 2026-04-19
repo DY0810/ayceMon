@@ -28,14 +28,14 @@ export default async function StatsPage() {
   if (!userStats || userStats.totalSessions === 0) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
-        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-6xl dark:text-white">
+        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-foreground lg:text-6xl">
           Stats
         </h1>
-        <div className="mt-10 flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
-          <p className="font-medium text-[#191c1f] dark:text-white">
+        <div className="mt-10 flex flex-col items-center justify-center rounded-[20px] border border-dashed border-input bg-secondary px-6 py-16 text-center">
+          <p className="font-medium text-foreground">
             You haven&apos;t logged a meal yet.
           </p>
-          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">
             Start a session to track your first W.
           </p>
           <Link
@@ -55,12 +55,12 @@ export default async function StatsPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
-      <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-6xl dark:text-white">
+      <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-foreground lg:text-6xl">
         Stats
       </h1>
 
       {/* Headline record */}
-      <p className="mt-4 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+      <p className="mt-4 text-sm tracking-[0.01em] text-muted-foreground">
         Lifetime record across {userStats.totalSessions}{" "}
         {userStats.totalSessions === 1 ? "session" : "sessions"}.
       </p>
@@ -68,25 +68,25 @@ export default async function StatsPage() {
       {/* Top-level stats cards */}
       <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {/* Record */}
-        <div className="rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#191c1f]">
-          <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <div className="rounded-[20px] border border-border bg-card px-5 py-4">
+          <p className="text-xs tracking-[0.01em] text-muted-foreground">
             Record
           </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-[#191c1f] dark:text-white">
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
             {userStats.totalWins}–{userStats.totalLosses}
           </p>
         </div>
 
         {/* Lifetime Margin */}
-        <div className="rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#191c1f]">
-          <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <div className="rounded-[20px] border border-border bg-card px-5 py-4">
+          <p className="text-xs tracking-[0.01em] text-muted-foreground">
             Lifetime Margin
           </p>
           <p
             className={`mt-1 text-2xl font-semibold tabular-nums ${
               marginPositive
-                ? "text-[#191c1f] dark:text-white"
-                : "text-[#e23b4a]"
+                ? "text-foreground"
+                : "text-destructive"
             }`}
           >
             {formatMargin(userStats.totalMargin)}
@@ -94,15 +94,15 @@ export default async function StatsPage() {
         </div>
 
         {/* Best Run */}
-        <div className="rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#191c1f]">
-          <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <div className="rounded-[20px] border border-border bg-card px-5 py-4">
+          <p className="text-xs tracking-[0.01em] text-muted-foreground">
             Best Run
           </p>
           <p
             className={`mt-1 text-2xl font-semibold tabular-nums ${
               bestMarginPositive
-                ? "text-[#191c1f] dark:text-white"
-                : "text-[#e23b4a]"
+                ? "text-foreground"
+                : "text-destructive"
             }`}
           >
             {formatMargin(userStats.bestMargin)}
@@ -110,15 +110,15 @@ export default async function StatsPage() {
         </div>
 
         {/* Worst Run */}
-        <div className="rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#191c1f]">
-          <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <div className="rounded-[20px] border border-border bg-card px-5 py-4">
+          <p className="text-xs tracking-[0.01em] text-muted-foreground">
             Worst Run
           </p>
           <p
             className={`mt-1 text-2xl font-semibold tabular-nums ${
               worstMarginPositive
-                ? "text-[#191c1f] dark:text-white"
-                : "text-[#e23b4a]"
+                ? "text-foreground"
+                : "text-destructive"
             }`}
           >
             {formatMargin(userStats.worstMargin)}
@@ -129,7 +129,7 @@ export default async function StatsPage() {
       {/* Per-restaurant table */}
       {restaurantStats.length > 0 && (
         <section className="mt-12">
-          <h2 className="font-[var(--font-display)] text-xl font-medium tracking-tight text-[#191c1f] dark:text-white">
+          <h2 className="font-[var(--font-display)] text-xl font-medium tracking-tight text-foreground">
             By Restaurant
           </h2>
 
@@ -137,7 +137,7 @@ export default async function StatsPage() {
           <div className="mt-6 hidden lg:block">
             <table className="w-full text-sm tabular-nums">
               <thead>
-                <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] dark:text-[#8d969e]">
+                <tr className="text-left font-[var(--font-display)] text-xs font-medium text-muted-foreground">
                   <th scope="col" className="w-auto py-3 pr-4 font-medium">
                     Name
                   </th>
@@ -171,22 +171,22 @@ export default async function StatsPage() {
                           {rs.restaurantName}
                         </Link>
                       </td>
-                      <td className="py-3 px-4 text-right text-[#191c1f] dark:text-white">
+                      <td className="py-3 px-4 text-right text-foreground">
                         {rs.sessions}
                       </td>
-                      <td className="py-3 px-4 text-right text-[#191c1f] dark:text-white">
+                      <td className="py-3 px-4 text-right text-foreground">
                         {rs.wins}–{rs.losses}
                       </td>
                       <td
                         className={`py-3 px-4 text-right font-semibold ${
                           rsMarginPositive
-                            ? "text-[#191c1f] dark:text-white"
-                            : "text-[#e23b4a]"
+                            ? "text-foreground"
+                            : "text-destructive"
                         }`}
                       >
                         {formatMargin(rs.totalMargin)}
                       </td>
-                      <td className="py-3 pl-4 text-right text-[#505a63] dark:text-[#8d969e]">
+                      <td className="py-3 pl-4 text-right text-muted-foreground">
                         {formatDate(rs.lastVisitedAt)}
                       </td>
                     </tr>
@@ -204,40 +204,40 @@ export default async function StatsPage() {
                 <li key={rs.restaurantId}>
                   <Link
                     href={`/history/by-restaurant/${rs.restaurantId}`}
-                    className="block rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white px-5 py-4 transition-colors hover:border-[#191c1f] focus-visible:border-[#191c1f] focus-visible:outline-none dark:border-white/10 dark:bg-[#191c1f] dark:hover:border-white dark:focus-visible:border-white"
+                    className="block rounded-[20px] border border-border bg-card px-5 py-4 transition-colors hover:border-foreground focus-visible:border-foreground focus-visible:outline-none"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="truncate text-base font-semibold text-[#191c1f] dark:text-white">
+                      <p className="truncate text-base font-semibold text-foreground">
                         {rs.restaurantName}
                       </p>
-                      <span className="shrink-0 text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                      <span className="shrink-0 text-xs tracking-[0.01em] text-muted-foreground">
                         {formatDate(rs.lastVisitedAt)}
                       </span>
                     </div>
                     <dl className="mt-3 grid grid-cols-3 gap-3 text-xs tabular-nums">
                       <div className="flex flex-col gap-0.5">
-                        <dt className="text-[#505a63] dark:text-[#8d969e]">
+                        <dt className="text-muted-foreground">
                           Visits
                         </dt>
-                        <dd className="font-medium text-[#191c1f] dark:text-white">
+                        <dd className="font-medium text-foreground">
                           {rs.sessions}
                         </dd>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <dt className="text-[#505a63] dark:text-[#8d969e]">W–L</dt>
-                        <dd className="font-medium text-[#191c1f] dark:text-white">
+                        <dt className="text-muted-foreground">W–L</dt>
+                        <dd className="font-medium text-foreground">
                           {rs.wins}–{rs.losses}
                         </dd>
                       </div>
                       <div className="flex flex-col gap-0.5">
-                        <dt className="text-[#505a63] dark:text-[#8d969e]">
+                        <dt className="text-muted-foreground">
                           Margin
                         </dt>
                         <dd
                           className={`font-semibold ${
                             rsMarginPositive
-                              ? "text-[#191c1f] dark:text-white"
-                              : "text-[#e23b4a]"
+                              ? "text-foreground"
+                              : "text-destructive"
                           }`}
                         >
                           {formatMargin(rs.totalMargin)}
