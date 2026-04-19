@@ -103,7 +103,7 @@ export function GuestMigrationEffect() {
       aria-live="polite"
       className="mx-auto w-full max-w-6xl px-4 py-2 lg:px-8"
     >
-      <div className="rounded-full bg-[#191c1f] px-5 py-2.5 text-center text-sm font-medium text-white dark:bg-white dark:text-[#191c1f]">
+      <div className="rounded-full bg-foreground px-5 py-2.5 text-center text-sm font-medium text-background">
         {banner}
       </div>
     </div>
