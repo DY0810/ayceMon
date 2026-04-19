@@ -1,0 +1,40 @@
+# kind cluster config for aycemon local dev.
+#
+# Ports are deliberately remapped:
+#   host 8080 -> container 80  (plain HTTP)
+#   host 8443 -> container 443 (TLS, unused locally but reserved)
+#
+# Why not 80/443 directly? macOS binds :5000 and :7000 to the AirPlay Receiver
+# and has historically surprised people with privileged-port prompts for :80.
+# 8080/8443 dodges both issues and keeps the kit sudo-free on every supported
+# host OS. The ingress-nginx manifest in k8s/kind/ingress-nginx.yaml uses
+# hostPort 80/443 inside the node — the extraPortMappings below bridge those
+# to the user-facing ports.
+#
+# The control-plane node is labeled `ingress-ready=true` so the ingress-nginx
+# manifest's nodeSelector schedules the controller onto it. Single-node
+# clusters only — we never want this on multi-node kind in CI.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: aycemon
+nodes:
+  - role: control-plane
+    # Default kindest/node for kind v0.31.0 (Kubernetes v1.35.0). Pinned by
+    # digest so `kind create cluster` is reproducible regardless of when the
+    # tag was last repushed. Bump this together with KIND_VERSION in the
+    # Makefile.
+    image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 8080
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 8443
+        protocol: TCP
