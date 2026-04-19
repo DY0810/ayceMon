@@ -238,11 +238,11 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-[#505a63] dark:text-[#8d969e]">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         {copy.footer}{" "}
         <Link
           href={footerHref}
-          className="font-medium text-[#191c1f] underline-offset-4 hover:underline dark:text-white"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           {copy.footerLinkLabel}
         </Link>
