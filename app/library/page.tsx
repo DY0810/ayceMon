@@ -289,10 +289,10 @@ export default function LibraryPage() {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 lg:px-8 lg:py-16">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-5xl dark:text-white">
+          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-foreground lg:text-5xl">
             Library
           </h1>
-          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">
             {session.restaurantName ?? "Unnamed restaurant"} · buffet $
             {session.buffetPrice}
           </p>
@@ -323,7 +323,7 @@ export default function LibraryPage() {
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="item-name"
-                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                  className="text-sm font-medium tracking-[0.01em] text-foreground"
                 >
                   Name
                 </label>
@@ -341,7 +341,7 @@ export default function LibraryPage() {
                   <p
                     id="item-name-error"
                     role="alert"
-                    className="text-sm text-[#e23b4a]"
+                    className="text-sm text-destructive"
                   >
                     {errors.name}
                   </p>
@@ -352,12 +352,12 @@ export default function LibraryPage() {
                 <div className="flex items-center justify-between gap-2">
                   <label
                     htmlFor="item-value"
-                    className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                    className="text-sm font-medium tracking-[0.01em] text-foreground"
                   >
                     À la carte value (USD)
                   </label>
                   {seedRange ? (
-                    <span className="text-xs text-[#505a63] tabular-nums dark:text-[#8d969e]">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                       typical ${seedRange.low.toFixed(0)}–$
                       {seedRange.high.toFixed(0)}
                     </span>
@@ -383,7 +383,7 @@ export default function LibraryPage() {
                   <p
                     id="item-value-error"
                     role="alert"
-                    className="text-sm text-[#e23b4a]"
+                    className="text-sm text-destructive"
                   >
                     {errors.alaCarteValue}
                   </p>
@@ -393,7 +393,7 @@ export default function LibraryPage() {
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="item-grams"
-                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                  className="text-sm font-medium tracking-[0.01em] text-foreground"
                 >
                   Grams per unit
                 </label>
@@ -424,7 +424,7 @@ export default function LibraryPage() {
                   />
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-[#505a63] dark:text-[#8d969e]"
+                    className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-muted-foreground"
                   >
                     g
                   </span>
@@ -433,14 +433,14 @@ export default function LibraryPage() {
                   <p
                     id="item-grams-error"
                     role="alert"
-                    className="text-sm text-[#e23b4a]"
+                    className="text-sm text-destructive"
                   >
                     {errors.gramsPerUnit}
                   </p>
                 ) : (
                   <p
                     id="item-grams-help"
-                    className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                    className="text-xs tracking-[0.01em] text-muted-foreground"
                   >
                     One serving unit in grams. E.g. one nigiri ≈ 20 g,
                     one pizza slice ≈ 120 g.
@@ -451,10 +451,10 @@ export default function LibraryPage() {
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="item-category"
-                  className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                  className="text-sm font-medium tracking-[0.01em] text-foreground"
                 >
                   Category{" "}
-                  <span className="text-[#505a63] dark:text-[#8d969e]">(optional)</span>
+                  <span className="text-muted-foreground">(optional)</span>
                 </label>
                 <Input
                   id="item-category"
@@ -479,7 +479,7 @@ export default function LibraryPage() {
       {mutationError ? (
         <p
           role="alert"
-          className="mb-4 rounded-2xl border border-[#e23b4a]/40 bg-[#e23b4a]/10 px-4 py-3 text-sm text-[#e23b4a]"
+          className="mb-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           {mutationError}
         </p>
@@ -489,32 +489,32 @@ export default function LibraryPage() {
         <div className="mb-8 hidden gap-4 sm:grid sm:grid-cols-3">
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 Total items
               </div>
-              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
+              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-foreground">
                 {summary.totalItems}
               </div>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 Library value
               </div>
-              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
+              <div className="mt-2 font-[var(--font-display)] text-3xl font-medium tabular-nums tracking-tight text-foreground">
                 ${summary.totalValue.toFixed(2)}
               </div>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <div className="text-xs uppercase tracking-wide text-[#505a63] dark:text-[#8d969e]">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 Best $/fill ratio
               </div>
-              <div className="mt-2 font-[var(--font-display)] text-2xl font-medium tabular-nums tracking-tight text-[#191c1f] dark:text-white">
+              <div className="mt-2 font-[var(--font-display)] text-2xl font-medium tabular-nums tracking-tight text-foreground">
                 <span className="truncate">{summary.bestRatio.name}</span>
-                <span className="ml-1 text-base font-normal text-[#505a63] dark:text-[#8d969e]">
+                <span className="ml-1 text-base font-normal text-muted-foreground">
                   ${summary.bestRatio.ratio.toFixed(2)}/fill
                 </span>
               </div>
@@ -524,9 +524,9 @@ export default function LibraryPage() {
       ) : null}
 
       {session.library.length === 0 ? (
-        <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
-          <p className="font-medium text-[#191c1f] dark:text-white">No items yet</p>
-          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-[20px] border border-dashed border-input bg-secondary px-6 py-16 text-center">
+          <p className="font-medium text-foreground">No items yet</p>
+          <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">
             Tap “Add item” to start building your buffet menu.
           </p>
         </div>
@@ -544,20 +544,20 @@ export default function LibraryPage() {
                       size="icon-sm"
                       aria-label={`Remove ${item.name}`}
                       onClick={() => removeItemFromLibrary(item.id)}
-                      className="text-[#505a63] hover:bg-[#f4f4f4] hover:text-[#191c1f] dark:text-[#8d969e] dark:hover:bg-[#262a2e] dark:hover:text-white"
+                      className="text-muted-foreground hover:bg-secondary hover:text-foreground"
                     >
                       <Trash2 />
                     </Button>
                   </CardAction>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium tabular-nums text-[#191c1f] dark:text-white">
+                  <span className="font-medium tabular-nums text-foreground">
                     ${item.alaCarteValue.toFixed(2)}
                   </span>
-                  <span aria-hidden className="text-[#505a63] dark:text-[#8d969e]">
+                  <span aria-hidden className="text-muted-foreground">
                     ·
                   </span>
-                  <span className="text-[#505a63] tabular-nums dark:text-[#8d969e]">
+                  <span className="text-muted-foreground tabular-nums">
                     {item.gramsPerUnit !== undefined
                       ? `${item.gramsPerUnit} g`
                       : `fill ${item.fillFactor}/10`}

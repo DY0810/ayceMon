@@ -74,14 +74,14 @@ export default function CombosPage() {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 lg:px-8 lg:py-16">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-5xl dark:text-white">
+          <h1 className="font-[var(--font-display)] text-3xl font-medium leading-tight tracking-tight text-foreground lg:text-5xl">
             Combos
           </h1>
-          <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">
             Pre-meal targets to clear ${buffetPrice.toFixed(2)}.
           </p>
         </div>
-        <p className="hidden text-sm tracking-[0.01em] text-[#505a63] lg:block dark:text-[#8d969e]">
+        <p className="hidden text-sm tracking-[0.01em] text-muted-foreground lg:block">
           Appetite budget: {session.appetiteBudget} fill units
         </p>
       </div>
@@ -130,26 +130,26 @@ export default function CombosPage() {
                   <CardContent className="flex flex-col gap-4">
                     <div className="flex items-baseline justify-between gap-3">
                       <div>
-                        <div className="font-[var(--font-display)] text-4xl font-medium leading-none tracking-tight tabular-nums text-[#191c1f] dark:text-white">
+                        <div className="font-[var(--font-display)] text-4xl font-medium leading-none tracking-tight tabular-nums text-foreground">
                           ${combo.totalValue.toFixed(2)}
                         </div>
-                        <div className="mt-2 text-xs tracking-[0.01em] tabular-nums text-[#505a63] dark:text-[#8d969e]">
+                        <div className="mt-2 text-xs tracking-[0.01em] tabular-nums text-muted-foreground">
                           vs ${buffetPrice.toFixed(2)} buffet ·{" "}
                           {wins
                             ? `+$${(combo.totalValue - buffetPrice).toFixed(2)}`
                             : `-$${(buffetPrice - combo.totalValue).toFixed(2)}`}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-[#505a63] tabular-nums dark:text-[#8d969e]">
+                      <div className="text-right text-xs text-muted-foreground tabular-nums">
                         fill {combo.totalFill}/{session.appetiteBudget}
                       </div>
                     </div>
                     <div
-                      className="h-2 w-full overflow-hidden rounded-full bg-[#f4f4f4] dark:bg-[#262a2e]"
+                      className="h-2 w-full overflow-hidden rounded-full bg-secondary"
                       aria-hidden
                     >
                       <div
-                        className="h-full rounded-full bg-[#191c1f] dark:bg-white"
+                        className="h-full rounded-full bg-foreground"
                         style={{
                           width: `${Math.min(
                             100,
@@ -169,13 +169,13 @@ export default function CombosPage() {
                             key={pick.itemId}
                             className="flex items-center justify-between gap-2 text-sm tracking-[0.01em]"
                           >
-                            <span className="text-[#191c1f] dark:text-white">
-                              <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
+                            <span className="text-foreground">
+                              <span className="tabular-nums text-muted-foreground">
                                 {pick.units}×
                               </span>{" "}
                               {item.name}
                             </span>
-                            <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
+                            <span className="tabular-nums text-muted-foreground">
                               ${(item.alaCarteValue * pick.units).toFixed(2)}
                             </span>
                           </li>
@@ -215,9 +215,9 @@ function EmptyState({
 }) {
   const router = useRouter();
   return (
-    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
-      <p className="font-medium text-[#191c1f] dark:text-white">{title}</p>
-      <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">{body}</p>
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-input bg-secondary px-6 py-16 text-center">
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">{body}</p>
       <Button
         type="button"
         variant="outline"

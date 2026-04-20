@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   title: "ayceMon — make your money worth at AYCE",
   description:
     "Track buffet items, get high-value combo suggestions, and find out if you beat the all-you-can-eat price.",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export const viewport: Viewport = {

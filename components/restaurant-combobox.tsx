@@ -255,15 +255,15 @@ export function RestaurantCombobox({
         aria-live="polite"
         data-testid="restaurant-resolved"
       >
-        <label className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+        <label className="text-sm font-medium tracking-[0.01em] text-foreground">
           Restaurant
         </label>
-        <div className="flex items-start justify-between gap-4 rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white p-4 dark:border-white/10 dark:bg-[#191c1f]">
+        <div className="flex items-start justify-between gap-4 rounded-[20px] border border-border bg-card p-4">
           <div className="min-w-0">
-            <div className="truncate text-base font-medium text-[#191c1f] dark:text-white">
+            <div className="truncate text-base font-medium text-foreground">
               {resolvedPlace.name}
             </div>
-            <div className="mt-0.5 truncate text-sm text-[#505a63] dark:text-[#8d969e]">
+            <div className="mt-0.5 truncate text-sm text-muted-foreground">
               {resolvedPlace.formattedAddress}
             </div>
           </div>
@@ -285,9 +285,9 @@ export function RestaurantCombobox({
       <div className="flex flex-col gap-2">
         <label
           htmlFor="restaurant-name-manual"
-          className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+          className="text-sm font-medium tracking-[0.01em] text-foreground"
         >
-          Restaurant <span className="text-[#505a63] dark:text-[#8d969e]">(manual)</span>
+          Restaurant <span className="text-muted-foreground">(manual)</span>
         </label>
         <Input
           id="restaurant-name-manual"
@@ -301,7 +301,7 @@ export function RestaurantCombobox({
         <button
           type="button"
           onClick={() => setManualMode(false)}
-          className="self-start text-xs font-medium text-[#191c1f] underline-offset-2 hover:underline dark:text-white"
+          className="self-start text-xs font-medium text-foreground underline-offset-2 hover:underline"
         >
           Search for a restaurant instead
         </button>
@@ -313,9 +313,9 @@ export function RestaurantCombobox({
     <div className="flex flex-col gap-2">
       <label
         htmlFor="restaurant-combobox-input"
-        className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+        className="text-sm font-medium tracking-[0.01em] text-foreground"
       >
-        Restaurant <span className="text-[#505a63] dark:text-[#8d969e]">(optional)</span>
+        Restaurant <span className="text-muted-foreground">(optional)</span>
       </label>
 
       <Combobox.Root<Suggestion>
@@ -333,12 +333,12 @@ export function RestaurantCombobox({
         <Combobox.Input
           id="restaurant-combobox-input"
           placeholder="Search for a restaurant…"
-          className="h-12 w-full min-w-0 rounded-full border border-[rgba(25,28,31,0.12)] bg-white px-5 text-[0.9375rem] tracking-[0.01em] text-[#191c1f] outline-none transition-colors placeholder:text-[#8d969e] focus-visible:border-[#191c1f] dark:border-white/15 dark:bg-[#191c1f] dark:text-white dark:focus-visible:border-white"
+          className="h-12 w-full min-w-0 rounded-full border border-input bg-background px-5 text-[0.9375rem] tracking-[0.01em] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-foreground"
         />
         <Combobox.Portal>
           <Combobox.Positioner sideOffset={8} className="z-50 outline-none">
-            <Combobox.Popup className="max-h-[320px] w-[var(--anchor-width)] overflow-auto rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#191c1f]">
-              <Combobox.Empty className="px-4 py-3 text-sm text-[#505a63] dark:text-[#8d969e]">
+            <Combobox.Popup className="max-h-[320px] w-[var(--anchor-width)] overflow-auto rounded-[20px] border border-border bg-popover p-1 shadow-lg">
+              <Combobox.Empty className="px-4 py-3 text-sm text-muted-foreground">
                 {query.trim().length < MIN_QUERY_CHARS
                   ? "Type at least 3 characters."
                   : isLoading
@@ -350,13 +350,13 @@ export function RestaurantCombobox({
                   <Combobox.Item
                     key={item.placeId}
                     value={item}
-                    className="flex cursor-pointer flex-col gap-0.5 rounded-[14px] px-4 py-3 text-left outline-none data-[highlighted]:bg-[#f4f4f4] dark:data-[highlighted]:bg-[#262a2e]"
+                    className="flex cursor-pointer flex-col gap-0.5 rounded-[14px] px-4 py-3 text-left outline-none data-[highlighted]:bg-secondary"
                   >
-                    <span className="text-sm font-medium text-[#191c1f] dark:text-white">
+                    <span className="text-sm font-medium text-foreground">
                       {item.primaryText}
                     </span>
                     {item.secondaryText ? (
-                      <span className="text-xs text-[#505a63] dark:text-[#8d969e]">
+                      <span className="text-xs text-muted-foreground">
                         {item.secondaryText}
                       </span>
                     ) : null}
@@ -366,7 +366,7 @@ export function RestaurantCombobox({
               <button
                 type="button"
                 onClick={handleEnterManually}
-                className="mt-1 flex w-full flex-col gap-0.5 rounded-[14px] px-4 py-3 text-left text-sm text-[#191c1f] hover:bg-[#f4f4f4] dark:text-white dark:hover:bg-[#262a2e]"
+                className="mt-1 flex w-full flex-col gap-0.5 rounded-[14px] px-4 py-3 text-left text-sm text-foreground hover:bg-secondary"
               >
                 None of these — enter manually
               </button>
@@ -376,20 +376,20 @@ export function RestaurantCombobox({
       </Combobox.Root>
 
       {geoPrompt === "idle" && !geoAsked ? (
-        <div className="mt-1 flex items-center gap-3 rounded-[14px] border border-dashed border-[rgba(25,28,31,0.12)] px-3 py-2 text-xs text-[#505a63] dark:border-white/10 dark:text-[#8d969e]">
+        <div className="mt-1 flex items-center gap-3 rounded-[14px] border border-dashed border-input px-3 py-2 text-xs text-muted-foreground">
           <span>Use your location to find nearby restaurants?</span>
           <div className="ml-auto flex gap-2">
             <button
               type="button"
               onClick={handleAskForLocation}
-              className="font-medium text-[#191c1f] underline-offset-2 hover:underline dark:text-white"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
             >
               Allow
             </button>
             <button
               type="button"
               onClick={handleDismissLocation}
-              className="text-[#505a63] underline-offset-2 hover:underline dark:text-[#8d969e]"
+              className="text-muted-foreground underline-offset-2 hover:underline"
             >
               Not now
             </button>
@@ -398,7 +398,7 @@ export function RestaurantCombobox({
       ) : null}
 
       {errorMessage ? (
-        <p role="alert" className="text-sm text-[#e23b4a]">
+        <p role="alert" className="text-sm text-destructive">
           {errorMessage}
         </p>
       ) : null}

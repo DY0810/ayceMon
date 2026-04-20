@@ -186,7 +186,7 @@ export function ShareDrawer({
         <div className="flex flex-col gap-2">
           <label
             htmlFor="invite-url"
-            className="text-xs font-medium tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+            className="text-xs font-medium tracking-[0.01em] text-muted-foreground"
           >
             Invite link
           </label>
@@ -216,19 +216,19 @@ export function ShareDrawer({
             </Button>
           </div>
           {mint.status === "error" ? (
-            <p role="alert" className="text-xs text-[#e23b4a]">
+            <p role="alert" className="text-xs text-destructive">
               {mint.message}
             </p>
           ) : null}
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="text-xs font-medium tracking-[0.01em] text-muted-foreground">
             Invited so far ({collaborators.length})
           </p>
           <ul className="flex flex-col gap-1 text-sm">
             {collaborators.length === 0 ? (
-              <li className="text-[#505a63] dark:text-[#8d969e]">
+              <li className="text-muted-foreground">
                 No collaborators yet.
               </li>
             ) : (
@@ -237,12 +237,12 @@ export function ShareDrawer({
                   key={c.userId}
                   className="flex items-center justify-between"
                 >
-                  <span className="text-[#191c1f] dark:text-white">
+                  <span className="text-foreground">
                     {c.userId === currentUserId
                       ? "You"
                       : shortUserId(c.userId)}
                   </span>
-                  <span className="text-xs text-[#505a63] dark:text-[#8d969e]">
+                  <span className="text-xs text-muted-foreground">
                     {c.role}
                   </span>
                 </li>
@@ -261,7 +261,7 @@ export function ShareDrawer({
             {revokePending ? "Revoking…" : "Revoke all active invites"}
           </Button>
           {revokeError ? (
-            <p role="alert" className="text-xs text-[#e23b4a]">
+            <p role="alert" className="text-xs text-destructive">
               {revokeError}
             </p>
           ) : null}

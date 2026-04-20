@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { Wordmark } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -144,11 +145,12 @@ export function AuthForm({ mode, next }: AuthFormProps) {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 py-16 lg:py-24">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-[var(--font-display)] text-4xl font-medium tracking-[-0.02em] text-[#191c1f] dark:text-white">
+      <Wordmark className="text-xl text-foreground" />
+      <div className="mt-6 flex flex-col gap-2">
+        <h1 className="font-[var(--font-display)] text-4xl font-medium tracking-[-0.02em] text-foreground">
           {copy.heading}
         </h1>
-        <p className="text-[0.9375rem] text-[#505a63] dark:text-[#8d969e]">
+        <p className="text-[0.9375rem] text-muted-foreground">
           {copy.subheading}
         </p>
       </div>
@@ -161,7 +163,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="auth-email"
-            className="px-1 text-xs font-medium tracking-wide text-[#505a63] uppercase dark:text-[#8d969e]"
+            className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
             Email
           </label>
@@ -178,7 +180,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           {fieldErrors.email ? (
             <p
               id="auth-email-error"
-              className="px-1 text-xs text-[#e23b4a]"
+              className="px-1 text-xs text-destructive"
             >
               {fieldErrors.email}
             </p>
@@ -188,7 +190,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="auth-password"
-            className="px-1 text-xs font-medium tracking-wide text-[#505a63] uppercase dark:text-[#8d969e]"
+            className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
           >
             Password
           </label>
@@ -206,7 +208,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
           {fieldErrors.password ? (
             <p
               id="auth-password-error"
-              className="px-1 text-xs text-[#e23b4a]"
+              className="px-1 text-xs text-destructive"
             >
               {fieldErrors.password}
             </p>
@@ -216,7 +218,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         {formError ? (
           <p
             role="alert"
-            className="rounded-[14px] border border-[#e23b4a]/30 bg-[#e23b4a]/5 px-4 py-3 text-sm text-[#e23b4a]"
+            className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           >
             {formError}
           </p>
@@ -225,7 +227,7 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         {infoMessage ? (
           <p
             role="status"
-            className="rounded-[14px] border border-[rgba(25,28,31,0.1)] bg-[#f4f4f4] px-4 py-3 text-sm text-[#191c1f] dark:border-white/10 dark:bg-[#262a2e] dark:text-white"
+            className="rounded-[14px] border border-border bg-secondary px-4 py-3 text-sm text-foreground"
           >
             {infoMessage}
           </p>
@@ -236,11 +238,11 @@ export function AuthForm({ mode, next }: AuthFormProps) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-[#505a63] dark:text-[#8d969e]">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         {copy.footer}{" "}
         <Link
           href={footerHref}
-          className="font-medium text-[#191c1f] underline-offset-4 hover:underline dark:text-white"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           {copy.footerLinkLabel}
         </Link>

@@ -337,10 +337,10 @@ export default function TrackerPage() {
       {sharedSessionId ? (
         <section
           aria-label="Collaborators"
-          className="-mx-4 flex items-center justify-between gap-3 border-b border-[rgba(25,28,31,0.08)] bg-white px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4 dark:border-white/10 dark:bg-[#191c1f]"
+          className="-mx-4 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4"
         >
-          <p className="min-w-0 truncate text-[#191c1f] dark:text-white">
-            <span className="text-[#505a63] dark:text-[#8d969e]">
+          <p className="min-w-0 truncate text-foreground">
+            <span className="text-muted-foreground">
               Eating with:
             </span>{" "}
             {renderCollaboratorRoster(
@@ -362,7 +362,7 @@ export default function TrackerPage() {
       <section
         aria-label="Live totals"
         aria-live="polite"
-        className="sticky top-16 z-30 -mx-4 border-b border-[rgba(25,28,31,0.08)] bg-white px-4 py-5 lg:hidden dark:border-white/10 dark:bg-[#191c1f]"
+        className="sticky top-16 z-30 -mx-4 border-b border-border bg-background px-4 py-5 lg:hidden"
       >
         <div key={`mobile-pulse-${winPulseKey}`} className={winPulseKey > 0 ? "ayce-win-pulse" : undefined}>
           <Progress
@@ -371,35 +371,35 @@ export default function TrackerPage() {
           />
         </div>
         <div className="mt-3 flex items-baseline justify-between gap-3 text-sm tracking-[0.01em] tabular-nums">
-          <span className="font-medium text-[#191c1f] dark:text-white">
+          <span className="font-medium text-foreground">
             ${displayedTotal.toFixed(2)} / ${buffetPrice.toFixed(2)}
           </span>
-          <span className="font-semibold text-[#191c1f] dark:text-white">
+          <span className="font-semibold text-foreground">
             {Math.round(displayedPercent)}%
           </span>
         </div>
         <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-[#505a63] dark:text-[#8d969e]">Eaten</dt>
-            <dd className="font-semibold tabular-nums text-[#191c1f] dark:text-white">
+            <dt className="text-muted-foreground">Eaten</dt>
+            <dd className="font-semibold tabular-nums text-foreground">
               ${displayedTotal.toFixed(2)}
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-[#505a63] dark:text-[#8d969e]">Margin</dt>
+            <dt className="text-muted-foreground">Margin</dt>
             <dd
               className={`font-semibold tabular-nums ${
                 marginIsPositive
-                  ? "text-[#191c1f] dark:text-white"
-                  : "text-[#e23b4a]"
+                  ? "text-foreground"
+                  : "text-destructive"
               }`}
             >
               {formattedMargin}
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-[#505a63] dark:text-[#8d969e]">Fill</dt>
-            <dd className="font-semibold tabular-nums text-[#191c1f] dark:text-white">
+            <dt className="text-muted-foreground">Fill</dt>
+            <dd className="font-semibold tabular-nums text-foreground">
               {fullnessLabel}
             </dd>
           </div>
@@ -420,36 +420,36 @@ export default function TrackerPage() {
         </div>
         <div className="flex flex-col gap-2">
           <span
-            className="font-[var(--font-display)] text-6xl lg:text-7xl font-medium leading-none tracking-[-0.03em] tabular-nums text-[#191c1f] dark:text-white"
+            className="font-[var(--font-display)] text-6xl lg:text-7xl font-medium leading-none tracking-[-0.03em] tabular-nums text-foreground"
           >
             {Math.round(displayedPercent)}%
           </span>
-          <span className="text-sm tracking-[0.01em] text-[#505a63] tabular-nums dark:text-[#8d969e]">
+          <span className="text-sm tracking-[0.01em] text-muted-foreground tabular-nums">
             ${displayedTotal.toFixed(2)} of ${buffetPrice.toFixed(2)}
           </span>
         </div>
         <dl className="flex flex-col">
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
-            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Eaten</dt>
-            <dd className="text-base font-semibold tabular-nums text-[#191c1f] dark:text-white">
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
+            <dt className="text-sm tracking-[0.01em] text-muted-foreground">Eaten</dt>
+            <dd className="text-base font-semibold tabular-nums text-foreground">
               ${displayedTotal.toFixed(2)}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
-            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Margin</dt>
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
+            <dt className="text-sm tracking-[0.01em] text-muted-foreground">Margin</dt>
             <dd
               className={`text-base font-semibold tabular-nums ${
                 marginIsPositive
-                  ? "text-[#191c1f] dark:text-white"
-                  : "text-[#e23b4a]"
+                  ? "text-foreground"
+                  : "text-destructive"
               }`}
             >
               {formattedMargin}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-2 border-t border-[rgba(25,28,31,0.08)] py-4 dark:border-white/10">
-            <dt className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">Fill</dt>
-            <dd className="text-base font-semibold tabular-nums text-[#191c1f] dark:text-white">
+          <div className="flex items-baseline justify-between gap-2 border-t border-border py-4">
+            <dt className="text-sm tracking-[0.01em] text-muted-foreground">Fill</dt>
+            <dd className="text-base font-semibold tabular-nums text-foreground">
               {fullnessLabel}
             </dd>
           </div>
@@ -466,12 +466,12 @@ export default function TrackerPage() {
               {finishPending ? "Saving…" : "Finish meal"}
             </Button>
             {finishError ? (
-              <p role="alert" className="text-sm text-[#e23b4a]">
+              <p role="alert" className="text-sm text-destructive">
                 {finishError}
               </p>
             ) : null}
             {logError ? (
-              <p role="alert" className="text-sm text-[#e23b4a]">
+              <p role="alert" className="text-sm text-destructive">
                 {logError}
               </p>
             ) : null}
@@ -514,12 +514,12 @@ export default function TrackerPage() {
               {finishPending ? "Saving…" : "Finish meal"}
             </Button>
             {finishError ? (
-              <p role="alert" className="text-sm text-[#e23b4a]">
+              <p role="alert" className="text-sm text-destructive">
                 {finishError}
               </p>
             ) : null}
             {logError ? (
-              <p role="alert" className="text-sm text-[#e23b4a]">
+              <p role="alert" className="text-sm text-destructive">
                 {logError}
               </p>
             ) : null}
@@ -633,12 +633,12 @@ function ItemCard({ item, units, onLog }: ItemCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-2 text-sm tracking-[0.01em]">
-          <span className="tabular-nums text-[#505a63] dark:text-[#8d969e]">
+          <span className="tabular-nums text-muted-foreground">
             ${item.alaCarteValue.toFixed(2)} · fill {item.fillFactor}/10
           </span>
-          <span className="tabular-nums text-[#191c1f] dark:text-white">
+          <span className="tabular-nums text-foreground">
             <span className="font-semibold">{formatUnits(units)}</span>{" "}
-            <span className="text-[#505a63] dark:text-[#8d969e]">
+            <span className="text-muted-foreground">
               (${lineTotal.toFixed(2)})
             </span>
           </span>
@@ -694,7 +694,7 @@ function ItemCard({ item, units, onLog }: ItemCardProps) {
           >
             <label
               htmlFor={`grams-${item.id}`}
-              className="text-xs font-medium tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+              className="text-xs font-medium tracking-[0.01em] text-muted-foreground"
             >
               Grams to log for {item.name}
             </label>
@@ -747,7 +747,7 @@ function ItemCard({ item, units, onLog }: ItemCardProps) {
           <p
             id={`grams-${item.id}-error`}
             role="alert"
-            className="text-xs text-[#e23b4a]"
+            className="text-xs text-destructive"
           >
             {gramsError}
           </p>
@@ -770,9 +770,9 @@ function EmptyState({
 }) {
   const router = useRouter();
   return (
-    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(25,28,31,0.12)] bg-[#f4f4f4] px-6 py-16 text-center dark:border-white/10 dark:bg-[#262a2e]">
-      <p className="font-medium text-[#191c1f] dark:text-white">{title}</p>
-      <p className="mt-2 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">{body}</p>
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-input bg-secondary px-6 py-16 text-center">
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="mt-2 text-sm tracking-[0.01em] text-muted-foreground">{body}</p>
       <Button
         type="button"
         variant="outline"
