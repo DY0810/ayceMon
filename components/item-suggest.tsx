@@ -191,7 +191,7 @@ export const ItemSuggest = forwardRef<HTMLInputElement, Props>(
           <ul
             id={listboxId}
             role="listbox"
-            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-auto rounded-[20px] border border-[rgba(25,28,31,0.08)] bg-white p-2 text-sm dark:border-white/10 dark:bg-[#191c1f]"
+            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-auto rounded-[20px] border border-border bg-popover p-2 text-sm"
           >
             {matches.map((entry, i) => {
               const isActive = i === activeIndex;
@@ -210,16 +210,16 @@ export const ItemSuggest = forwardRef<HTMLInputElement, Props>(
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-full px-4 py-2.5 transition-colors",
                     isActive
-                      ? "bg-[#f4f4f4] text-[#191c1f] dark:bg-[#262a2e] dark:text-white"
-                      : "text-[#191c1f] dark:text-white"
+                      ? "bg-secondary text-secondary-foreground"
+                      : "text-foreground"
                   )}
                 >
                   <span className="truncate font-medium">{entry.name}</span>
-                  <span className="ml-auto shrink-0 text-xs tabular-nums text-[#505a63] dark:text-[#8d969e]">
+                  <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                     ${adjustForDisplay(entry.valueLow, multiplier).toFixed(0)}–$
                     {adjustForDisplay(entry.valueHigh, multiplier).toFixed(0)}
                   </span>
-                  <span className="shrink-0 rounded-full bg-[#f4f4f4] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[#505a63] dark:bg-[#262a2e] dark:text-[#8d969e]">
+                  <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                     {CUISINE_LABELS[entry.cuisine]}
                   </span>
                 </li>

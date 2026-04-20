@@ -93,10 +93,10 @@ export default async function HistoryDetailPage({ params }: PageProps) {
     // non-null error here is a real failure (bad id shape, network, etc.).
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
-        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] dark:text-white">
+        <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-foreground">
           Session
         </h1>
-        <p role="alert" className="mt-6 text-sm text-[#e23b4a]">
+        <p role="alert" className="mt-6 text-sm text-destructive">
           Could not load this session.
         </p>
       </main>
@@ -161,28 +161,28 @@ export default async function HistoryDetailPage({ params }: PageProps) {
       <section aria-label="Result headline" className="mb-10 lg:mb-14">
         <Link
           href="/history"
-          className="text-xs tracking-[0.01em] text-[#505a63] hover:underline dark:text-[#8d969e]"
+          className="text-xs tracking-[0.01em] text-muted-foreground hover:underline"
         >
           ← Back to history
         </Link>
-        <h1 className="mt-4 font-[var(--font-display)] text-4xl font-medium leading-none tracking-[-0.03em] text-[#191c1f] md:text-6xl lg:text-7xl dark:text-white">
+        <h1 className="mt-4 font-[var(--font-display)] text-4xl font-medium leading-none tracking-[-0.03em] text-foreground md:text-6xl lg:text-7xl">
           {headline}
         </h1>
         {row.restaurants ? (
           <div className="mt-4">
-            <p className="text-base font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+            <p className="text-base font-medium tracking-[0.01em] text-foreground">
               {row.restaurants.name}
             </p>
-            <p className="mt-1 text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+            <p className="mt-1 text-sm tracking-[0.01em] text-muted-foreground">
               {row.restaurants.formatted_address}
             </p>
           </div>
         ) : row.restaurant_name ? (
-          <p className="mt-4 text-base font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+          <p className="mt-4 text-base font-medium tracking-[0.01em] text-foreground">
             {row.restaurant_name}
           </p>
         ) : null}
-        <p className="mt-2 text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+        <p className="mt-2 text-xs tracking-[0.01em] text-muted-foreground">
           Finished {formatDateTime(row.finished_at)}
         </p>
       </section>
@@ -192,13 +192,13 @@ export default async function HistoryDetailPage({ params }: PageProps) {
           aria-label="Eaten vs buffet price"
           className="mb-8 hidden lg:block"
         >
-          <div className="relative h-12 w-full overflow-hidden rounded-full bg-[#f4f4f4] lg:h-16 dark:bg-[#262a2e]">
+          <div className="relative h-12 w-full overflow-hidden rounded-full bg-secondary lg:h-16">
             <div
-              className="h-full bg-[#191c1f] dark:bg-white"
+              className="h-full bg-foreground"
               style={{ width: `${fillPercent}%` }}
             />
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm tracking-[0.01em] tabular-nums text-[#505a63] dark:text-[#8d969e]">
+          <div className="mt-3 flex items-center justify-between text-sm tracking-[0.01em] tabular-nums text-muted-foreground">
             <span>${totalValue.toFixed(2)} eaten</span>
             <span>of ${buffetPrice.toFixed(2)} buffet</span>
           </div>
@@ -212,31 +212,31 @@ export default async function HistoryDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
             <dl className="flex w-full flex-col text-sm tabular-nums lg:text-base">
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 lg:first:border-t-0 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4 lg:first:border-t-0">
+                <dt className="tracking-[0.01em] text-muted-foreground">
                   Total eaten
                 </dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dd className="font-medium text-foreground">
                   ${totalValue.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
+                <dt className="tracking-[0.01em] text-muted-foreground">
                   Buffet price
                 </dt>
-                <dd className="font-medium text-[#191c1f] dark:text-white">
+                <dd className="font-medium text-foreground">
                   ${buffetPrice.toFixed(2)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-[rgba(25,28,31,0.08)] lg:py-4 dark:lg:border-white/10">
-                <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <div className="flex items-center justify-between gap-2 lg:border-t lg:border-border lg:py-4">
+                <dt className="tracking-[0.01em] text-muted-foreground">
                   Margin
                 </dt>
                 <dd
                   className={`font-semibold ${
                     !onTheLine && !marginIsPositive
-                      ? "text-[#e23b4a]"
-                      : "text-[#191c1f] dark:text-white"
+                      ? "text-destructive"
+                      : "text-foreground"
                   }`}
                 >
                   {formattedMargin}
@@ -252,7 +252,7 @@ export default async function HistoryDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent>
             {rows.length === 0 ? (
-              <p className="text-sm tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <p className="text-sm tracking-[0.01em] text-muted-foreground">
                 Nothing was logged during this meal.
               </p>
             ) : groups.length > 0 ? (
@@ -263,10 +263,10 @@ export default async function HistoryDetailPage({ params }: PageProps) {
                     aria-label={`Logged by ${g.displayName}`}
                   >
                     <header className="flex items-baseline justify-between gap-2 pb-2">
-                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-[#191c1f] lg:text-base dark:text-white">
+                      <h3 className="font-[var(--font-display)] text-sm font-medium tracking-[0.01em] text-foreground lg:text-base">
                         {g.displayName}
                       </h3>
-                      <span className="text-sm font-semibold tabular-nums text-[#191c1f] dark:text-white">
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
                         ${g.subtotal.toFixed(2)}
                       </span>
                     </header>
@@ -284,30 +284,30 @@ export default async function HistoryDetailPage({ params }: PageProps) {
       <div className="mt-10 flex flex-col gap-3 lg:hidden">
         <dl className="flex w-full flex-col gap-2 text-sm tabular-nums">
           <div className="flex items-center justify-between gap-2">
-            <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+            <dt className="tracking-[0.01em] text-muted-foreground">
               Total eaten
             </dt>
-            <dd className="font-medium text-[#191c1f] dark:text-white">
+            <dd className="font-medium text-foreground">
               ${totalValue.toFixed(2)}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+            <dt className="tracking-[0.01em] text-muted-foreground">
               Buffet price
             </dt>
-            <dd className="font-medium text-[#191c1f] dark:text-white">
+            <dd className="font-medium text-foreground">
               ${buffetPrice.toFixed(2)}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <dt className="tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+            <dt className="tracking-[0.01em] text-muted-foreground">
               Margin
             </dt>
             <dd
               className={`font-semibold ${
                 !onTheLine && !marginIsPositive
-                  ? "text-[#e23b4a]"
-                  : "text-[#191c1f] dark:text-white"
+                  ? "text-destructive"
+                  : "text-foreground"
               }`}
             >
               {formattedMargin}
@@ -326,7 +326,7 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
   return (
     <table className="w-full table-fixed text-sm tabular-nums lg:text-base">
       <thead>
-        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-[#505a63] lg:text-sm dark:text-[#8d969e]">
+        <tr className="text-left font-[var(--font-display)] text-xs font-medium text-muted-foreground lg:text-sm">
           <th scope="col" className="w-auto py-2 pr-2 font-medium">
             Item
           </th>
@@ -345,18 +345,18 @@ function BreakdownTable({ rows }: { rows: BreakdownRow[] }) {
         {rows.map((r, i) => (
           <tr
             key={`${r.itemId}-${i}`}
-            className="border-t border-[rgba(25,28,31,0.08)] dark:border-white/10"
+            className="border-t border-border"
           >
-            <td className="py-2.5 pr-2 text-[#191c1f] break-words lg:py-3 dark:text-white">
+            <td className="py-2.5 pr-2 text-foreground break-words lg:py-3">
               {r.name}
             </td>
-            <td className="py-2.5 px-2 text-right text-[#191c1f] lg:py-3 dark:text-white">
+            <td className="py-2.5 px-2 text-right text-foreground lg:py-3">
               {formatUnits(r.units)}
             </td>
-            <td className="py-2.5 px-2 text-right text-[#505a63] lg:py-3 dark:text-[#8d969e]">
+            <td className="py-2.5 px-2 text-right text-muted-foreground lg:py-3">
               ${r.perUnitValue.toFixed(2)}
             </td>
-            <td className="py-2.5 pl-2 text-right font-medium text-[#191c1f] lg:py-3 dark:text-white">
+            <td className="py-2.5 pl-2 text-right font-medium text-foreground lg:py-3">
               ${r.lineTotal.toFixed(2)}
             </td>
           </tr>

@@ -290,10 +290,10 @@ export default function SetupPage() {
     <main className="mx-auto w-full max-w-6xl px-4 py-12 lg:px-8 lg:py-20">
       <div className="grid items-start gap-12 lg:grid-cols-[1fr_minmax(0,520px)] lg:gap-20">
         <section className="hidden lg:block">
-          <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:text-6xl dark:text-white">
+          <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-foreground lg:text-6xl">
             Start a session
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed tracking-[0.01em] text-muted-foreground">
             Tell us what the buffet costs and how hungry you are. We&apos;ll
             use this to figure out what combos beat the price.
           </p>
@@ -301,29 +301,29 @@ export default function SetupPage() {
             {REQUIREMENTS.map(({ icon: Icon, label }) => (
               <li
                 key={label}
-                className="flex items-center gap-4 text-sm text-[#505a63] dark:text-[#8d969e]"
+                className="flex items-center gap-4 text-sm text-muted-foreground"
               >
-                <span className="inline-flex size-11 items-center justify-center rounded-full bg-[#f4f4f4] text-[#191c1f] dark:bg-[#262a2e] dark:text-white">
+                <span className="inline-flex size-11 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                   <Icon className="size-5" aria-hidden="true" />
                 </span>
-                <span className="text-base text-[#191c1f] dark:text-white">{label}</span>
+                <span className="text-base text-foreground">{label}</span>
               </li>
             ))}
           </ul>
         </section>
 
-        <div className="lg:rounded-[20px] lg:border lg:border-[rgba(25,28,31,0.08)] lg:bg-white lg:p-10 dark:lg:border-white/10 dark:lg:bg-[#191c1f]">
+        <div className="lg:rounded-[20px] lg:border lg:border-border lg:bg-card lg:p-10">
           <div className="mb-8">
-            <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-[#191c1f] lg:hidden dark:text-white">
+            <h1 className="font-[var(--font-display)] text-4xl font-medium leading-tight tracking-tight text-foreground lg:hidden">
               Start a session
             </h1>
-            <p className="mt-2 text-base leading-relaxed tracking-[0.01em] text-[#505a63] lg:hidden dark:text-[#8d969e]">
+            <p className="mt-2 text-base leading-relaxed tracking-[0.01em] text-muted-foreground lg:hidden">
               Tell us what the buffet costs and how hungry you are.
             </p>
-            <h2 className="hidden font-[var(--font-display)] text-2xl font-medium tracking-tight text-[#191c1f] lg:block dark:text-white">
+            <h2 className="hidden font-[var(--font-display)] text-2xl font-medium tracking-tight text-foreground lg:block">
               Session details
             </h2>
-            <p className="mt-2 hidden text-sm tracking-[0.01em] text-[#505a63] lg:block dark:text-[#8d969e]">
+            <p className="mt-2 hidden text-sm tracking-[0.01em] text-muted-foreground lg:block">
               All fields except restaurant name are required.
             </p>
           </div>
@@ -340,7 +340,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="buffet-price"
-                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                className="text-sm font-medium tracking-[0.01em] text-foreground"
               >
                 Buffet price (USD)
               </label>
@@ -364,12 +364,12 @@ export default function SetupPage() {
                 <p
                   id="buffet-price-error"
                   role="alert"
-                  className="text-sm text-[#e23b4a]"
+                  className="text-sm text-destructive"
                 >
                   {errors.buffetPrice}
                 </p>
               ) : (
-                <p id="buffet-price-help" className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                <p id="buffet-price-help" className="text-xs tracking-[0.01em] text-muted-foreground">
                   What you paid to walk in.
                 </p>
               )}
@@ -378,7 +378,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="city-tier"
-                className="text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white"
+                className="text-sm font-medium tracking-[0.01em] text-foreground"
               >
                 City tier
               </label>
@@ -387,7 +387,7 @@ export default function SetupPage() {
                 value={cityTier}
                 onChange={(e) => setCityTier(e.target.value as CityTier)}
                 aria-describedby="city-tier-help"
-                className="h-12 w-full rounded-full border border-[rgba(25,28,31,0.12)] bg-white px-5 text-[0.9375rem] tracking-[0.01em] text-[#191c1f] outline-none transition-colors focus-visible:border-[#191c1f] dark:bg-[#191c1f] dark:text-white dark:border-white/15 dark:focus-visible:border-white"
+                className="h-12 w-full rounded-full border border-input bg-background px-5 text-[0.9375rem] tracking-[0.01em] text-foreground outline-none transition-colors focus-visible:border-foreground"
               >
                 {CITY_TIER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -395,19 +395,19 @@ export default function SetupPage() {
                   </option>
                 ))}
               </select>
-              <p id="city-tier-help" className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+              <p id="city-tier-help" className="text-xs tracking-[0.01em] text-muted-foreground">
                 Adjusts suggested à la carte prices for your area. Manual entries are never adjusted.
               </p>
             </div>
 
             <fieldset className="flex flex-col gap-3">
-              <legend className="mb-1 flex w-full items-center justify-between text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+              <legend className="mb-1 flex w-full items-center justify-between text-sm font-medium tracking-[0.01em] text-foreground">
                 <span>Appetite budget</span>
                 <button
                   type="button"
                   onClick={handleSkipToggle}
                   aria-pressed={budgetMode === "skipped"}
-                  className="text-xs font-normal tracking-[0.01em] text-[#505a63] underline-offset-4 hover:underline aria-pressed:font-medium aria-pressed:text-[#191c1f] dark:text-[#8d969e] dark:aria-pressed:text-white"
+                  className="text-xs font-normal tracking-[0.01em] text-muted-foreground underline-offset-4 hover:underline aria-pressed:font-medium aria-pressed:text-foreground"
                 >
                   {budgetMode === "skipped"
                     ? "Pick a budget"
@@ -430,7 +430,7 @@ export default function SetupPage() {
                       onClick={() => handlePresetClick(preset.value)}
                       aria-pressed={isSelected}
                       disabled={budgetMode === "skipped"}
-                      className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-[rgba(25,28,31,0.12)] bg-white text-[#191c1f] hover:bg-[#f4f4f4] aria-pressed:border-[#191c1f] aria-pressed:bg-[#191c1f] aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-[#262a2e] dark:aria-pressed:border-white dark:aria-pressed:bg-white dark:aria-pressed:text-[#191c1f]"
+                      className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-input bg-background text-foreground hover:bg-secondary aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background"
                     >
                       <span className="text-sm font-medium leading-tight">
                         {preset.label}
@@ -444,7 +444,7 @@ export default function SetupPage() {
               </div>
 
               {budgetMode === "skipped" ? (
-                <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                <p className="text-xs tracking-[0.01em] text-muted-foreground">
                   No budget target. We&apos;ll show grams consumed without a
                   denominator.
                 </p>
@@ -453,7 +453,7 @@ export default function SetupPage() {
                   <div className="flex items-center gap-2">
                     <label
                       htmlFor="custom-grams"
-                      className="shrink-0 text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                      className="shrink-0 text-xs tracking-[0.01em] text-muted-foreground"
                     >
                       Or custom
                     </label>
@@ -481,7 +481,7 @@ export default function SetupPage() {
                       />
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-[#505a63] dark:text-[#8d969e]"
+                        className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm text-muted-foreground"
                       >
                         g
                       </span>
@@ -491,14 +491,14 @@ export default function SetupPage() {
                     <p
                       id="custom-grams-error"
                       role="alert"
-                      className="text-sm text-[#e23b4a]"
+                      className="text-sm text-destructive"
                     >
                       {errors.customBudgetGrams}
                     </p>
                   ) : (
                     <p
                       id="custom-grams-help"
-                      className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]"
+                      className="text-xs tracking-[0.01em] text-muted-foreground"
                     >
                       {selectedGrams === null
                         ? "Pick a preset or type your own in grams."
@@ -511,7 +511,7 @@ export default function SetupPage() {
 
             {authUser ? (
               <fieldset className="flex flex-col gap-3">
-                <legend className="mb-1 text-sm font-medium tracking-[0.01em] text-[#191c1f] dark:text-white">
+                <legend className="mb-1 text-sm font-medium tracking-[0.01em] text-foreground">
                   Session mode
                 </legend>
                 <div
@@ -536,7 +536,7 @@ export default function SetupPage() {
                         type="button"
                         onClick={() => setSessionMode(opt.value)}
                         aria-pressed={isSelected}
-                        className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-[rgba(25,28,31,0.12)] bg-white text-[#191c1f] hover:bg-[#f4f4f4] aria-pressed:border-[#191c1f] aria-pressed:bg-[#191c1f] aria-pressed:text-white dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-[#262a2e] dark:aria-pressed:border-white dark:aria-pressed:bg-white dark:aria-pressed:text-[#191c1f]"
+                        className="flex h-auto min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-3 py-2.5 text-center transition-colors border-input bg-background text-foreground hover:bg-secondary aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background"
                       >
                         <span className="text-sm font-medium leading-tight">
                           {opt.label}
@@ -549,11 +549,11 @@ export default function SetupPage() {
                   })}
                 </div>
                 {errors.sharedSession ? (
-                  <p role="alert" className="text-sm text-[#e23b4a]">
+                  <p role="alert" className="text-sm text-destructive">
                     {errors.sharedSession}
                   </p>
                 ) : (
-                  <p className="text-xs tracking-[0.01em] text-[#505a63] dark:text-[#8d969e]">
+                  <p className="text-xs tracking-[0.01em] text-muted-foreground">
                     {sessionMode === "invite"
                       ? "We'll give you a link to share after you start."
                       : "Track just your meal."}

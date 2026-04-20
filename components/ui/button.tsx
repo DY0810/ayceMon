@@ -4,22 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent whitespace-nowrap font-medium tracking-[0.01em] transition-opacity transition-colors outline-none select-none focus-visible:ring-2 focus-visible:ring-[#191c1f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-[#e23b4a] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent whitespace-nowrap font-medium tracking-[0.01em] transition-opacity transition-colors outline-none select-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-[#191c1f] text-white border-transparent hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-foreground)] [a]:hover:bg-[color:var(--accent)] [a]:hover:text-[color:var(--accent-foreground)]",
+          "bg-foreground text-background border-transparent hover:bg-accent hover:text-accent-foreground [a]:hover:bg-accent [a]:hover:text-accent-foreground",
         outline:
-          "bg-transparent text-[#191c1f] border-2 border-[#191c1f] hover:bg-[#191c1f] hover:text-white aria-expanded:bg-[#191c1f] aria-expanded:text-white dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-[#191c1f]",
+          "bg-transparent text-foreground border-2 border-foreground hover:bg-foreground hover:text-background aria-expanded:bg-foreground aria-expanded:text-background",
         secondary:
-          "bg-[#f4f4f4] text-[#191c1f] border-transparent hover:opacity-85 dark:bg-[#262a2e] dark:text-white",
+          "bg-secondary text-secondary-foreground border-transparent hover:opacity-85",
         ghost:
-          "bg-transparent text-[#191c1f] hover:bg-[#f4f4f4] aria-expanded:bg-[#f4f4f4] dark:text-white dark:hover:bg-[#262a2e]",
+          "bg-transparent text-foreground hover:bg-secondary aria-expanded:bg-secondary",
         destructive:
-          "bg-[#e23b4a] text-white border-transparent hover:opacity-85",
+          "bg-destructive text-white border-transparent hover:opacity-85",
         link:
-          "bg-transparent text-[#191c1f] underline-offset-4 hover:underline rounded-none",
+          "bg-transparent text-foreground underline-offset-4 hover:underline rounded-none",
       },
       size: {
         default:
