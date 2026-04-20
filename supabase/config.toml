@@ -1,0 +1,35 @@
+# Supabase local-development config.
+#
+# This file is consumed by `supabase start` (local Inbucket mailbox for email
+# testing) and, if pushed via `supabase config push`, by the hosted project
+# for subject + template_path routing. Hosted-project email template **HTML**
+# is NOT synced by any Supabase CLI command — the HTML must be manually
+# mirrored to Dashboard → Authentication → Email Templates. See
+# docs/auth-email.md for the mirror runbook.
+
+project_id = "aycemon"
+
+# Email auth templates. Paths are relative to this file (supabase/).
+# Token reference (Go-style): {{ .ConfirmationURL }}, {{ .Token }},
+# {{ .TokenHash }}, {{ .SiteURL }}, {{ .RedirectTo }}, {{ .Email }},
+# {{ .NewEmail }} (email_change only).
+
+[auth.email.template.confirmation]
+subject = "Confirm your ayceMon account"
+content_path = "./supabase/email-templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your ayceMon sign-in link"
+content_path = "./supabase/email-templates/magic-link.html"
+
+[auth.email.template.recovery]
+subject = "Reset your ayceMon password"
+content_path = "./supabase/email-templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "You've been invited to ayceMon"
+content_path = "./supabase/email-templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new ayceMon email"
+content_path = "./supabase/email-templates/email-change.html"
