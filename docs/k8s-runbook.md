@@ -607,3 +607,156 @@ from the pod, then re-apply. Never leave the cluster without a
 NetworkPolicy during an incident beyond the triage window. Write a
 short post-incident note and update section 8 above with the missing
 rule.
+
+---
+
+## Appendix A — GKE Autopilot bootstrap (2026-04-21)
+
+Reproduction procedure for the currently-live cluster. Useful if the
+cluster is torn down and recreated. These steps capture the Autopilot-
+specific gotchas discovered during the initial provisioning — the generic
+plan lives at `plans/k8s-production-hosting.md`.
+
+### Pre-flight (one time, per laptop)
+
+```bash
+brew install google-cloud-sdk helm                    # formula, NOT --cask
+gcloud auth login                                     # personal account that owns the $300 trial
+gcloud config set project aycemon-494018
+gcloud components install kubectl gke-gcloud-auth-plugin
+echo 'source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Provision
+
+```bash
+# APIs — all eight are required on a fresh project
+gcloud services enable \
+  container.googleapis.com compute.googleapis.com \
+  cloudresourcemanager.googleapis.com iam.googleapis.com \
+  iamcredentials.googleapis.com artifactregistry.googleapis.com \
+  logging.googleapis.com monitoring.googleapis.com
+
+# Cluster
+gcloud container clusters create-auto aycemon-prod \
+  --region us-west1 --release-channel regular
+
+# Reserve the LB IP so it survives Service recreates
+gcloud compute addresses create aycemon-ingress \
+  --region us-west1 --network-tier=PREMIUM
+export LB_IP=$(gcloud compute addresses describe aycemon-ingress \
+  --region us-west1 --format='value(address)')
+```
+
+### cert-manager — via Helm, NOT the static manifest
+
+```bash
+helm repo add jetstack https://charts.jetstack.io && helm repo update
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --version v1.16.1 \
+  --set crds.enabled=true \
+  --set global.leaderElection.namespace=cert-manager
+```
+
+**Why Helm and not the static `kubectl apply -f cert-manager.yaml`:**
+the static manifest configures cainjector to acquire its leader-election
+lease in `kube-system`. On Autopilot, GKE Warden denies every create in
+managed namespaces, so cainjector fails on startup, the webhook caBundle
+never injects, and every ClusterIssuer apply errors with
+`x509: certificate signed by unknown authority`. The Helm chart's
+`global.leaderElection.namespace=cert-manager` flag points the lease at
+cert-manager's own namespace and sidesteps the Warden block.
+
+### ingress-nginx — snippet flags required
+
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx --create-namespace \
+  --set controller.service.type=LoadBalancer \
+  --set controller.service.loadBalancerIP=$LB_IP \
+  --set controller.ingressClassResource.default=true \
+  --set controller.allowSnippetAnnotations=true \
+  --set controller.config.annotations-risk-level=Critical
+```
+
+**Why both snippet flags:** `allowSnippetAnnotations=true` turns
+snippets on; `annotations-risk-level=Critical` raises the acceptance
+ceiling. `k8s/ingress.yaml` uses `nginx.ingress.kubernetes.io/server-snippet`
+to hide `/api/metrics` from the public internet (defense-in-depth; the
+endpoint is also token-gated at the app layer). Without both values, the
+ingress apply is rejected by the admission webhook.
+
+### GitHub Actions build-args
+
+The image bakes `NEXT_PUBLIC_*` at Docker build time. Next.js 13+
+inlines these across both client AND server bundles — runtime ConfigMap
+values cannot override. If the CI-built image is serving `Error: Your
+project's URL and Key are required to create a Supabase client` it
+means the GHA Variables were empty when the image was built.
+
+```bash
+gh variable set NEXT_PUBLIC_SUPABASE_URL --body "<value>"
+gh variable set NEXT_PUBLIC_SUPABASE_ANON_KEY --body "<value>"
+# Then re-run the workflow to rebuild the image
+gh run rerun <run-id>
+```
+
+### CI deploy-job auth (GCP service account, not KUBE_CONFIG)
+
+The deploy job uses `google-github-actions/get-gke-credentials@v2`,
+which requires both `container.clusterViewer` (to fetch the cluster
+endpoint) AND `container.developer` (to roll the Deployment). Grant
+both roles to the SA:
+
+```bash
+gcloud iam service-accounts create github-deployer
+for role in roles/container.clusterViewer roles/container.developer; do
+  gcloud projects add-iam-policy-binding aycemon-494018 \
+    --member="serviceAccount:github-deployer@aycemon-494018.iam.gserviceaccount.com" \
+    --role="$role" --condition=None
+done
+
+# Stream the JSON key straight into GHA without touching disk
+gcloud iam service-accounts keys create /dev/stdout \
+  --iam-account=github-deployer@aycemon-494018.iam.gserviceaccount.com \
+  | gh secret set GCP_SA_KEY
+```
+
+Repo Variables for the deploy job:
+- `GCP_PROJECT_ID` = `aycemon-494018`
+- `GKE_CLUSTER_NAME` = `aycemon-prod`
+- `GKE_CLUSTER_REGION` = `us-west1`
+
+### Image name casing
+
+`github.repository` is `DY0810/ayceMon` — Docker requires lowercase.
+The build job's `docker/metadata-action` already normalizes. The deploy
+step normalizes manually via `tr '[:upper:]' '[:lower:]'`. Keep both.
+Don't simplify by plugging `github.repository` into `kubectl set image`
+directly — you'll get `InvalidImageName` on the next pod creation.
+
+### The ACME solver NetworkPolicy
+
+`k8s/networkpolicy.yaml` includes a second policy named
+`allow-acme-http01-solver`. cert-manager creates a transient solver pod
+for each HTTP-01 challenge; the pod's labels (`acme.cert-manager.io/http01-solver=true`)
+don't match `app=aycemon`, so `default-deny-all` blocks it. Cert
+issuance and renewal stall silently at self-check. The allow-rule is
+load-bearing even though the pod only lives for minutes at a time.
+
+### Trial expiry
+
+Activated 2026-04-21, expires 2026-07-20. Default behavior at expiry:
+resources **suspend**, card is NOT auto-charged. Tear down ahead of
+day 90:
+
+```bash
+gcloud container clusters delete aycemon-prod --region us-west1 --quiet
+gcloud compute addresses delete aycemon-ingress --region us-west1 --quiet
+gh secret delete GCP_SA_KEY
+# Remove nip.io from Supabase redirect URLs in the dashboard
+```
