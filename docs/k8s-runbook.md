@@ -314,6 +314,75 @@ a fresh key and repeating the full rotation.
    the deployment (same steps 3–5 above).
 3. Confirm place search works in the app before the 24h grace expires.
 
+### Prometheus scrape token
+
+The `METRICS_SCRAPE_TOKEN` value in `aycemon-secrets` gates the
+`/api/metrics` endpoint. It is presented by the Prometheus Operator via
+the Secret `aycemon-metrics-scrape` (same namespace as the
+ServiceMonitor). Both Secrets MUST carry the identical token value —
+rotating one without the other silently breaks scrapes with 401s.
+
+1. Generate a new token (32 chars of base64url entropy is enough):
+   ```bash
+   NEW_TOKEN="$(openssl rand -base64 32 | tr -d '=+/' | cut -c1-32)"
+   ```
+   Store it somewhere safe for the 24h overlap window below — once it
+   leaves your shell, there is no "reveal" button.
+2. Update `.env.local`:
+   ```
+   METRICS_SCRAPE_TOKEN=…    # new value
+   ```
+3. Re-seed the application Secret (idempotent apply):
+   ```bash
+   bash scripts/k8s-seed-secrets.sh
+   ```
+4. Mirror the new token into the scrape-side Secret so Prometheus can
+   present it. The `aycemon-metrics-scrape` Secret MUST live in the
+   `aycemon` namespace — the Prometheus Operator resolves
+   `spec.endpoints[].authorization.credentials` against the
+   ServiceMonitor's namespace, not the Prometheus pod's. A Secret in
+   the `monitoring` namespace will not be found.
+   ```bash
+   kubectl -n aycemon create secret generic aycemon-metrics-scrape \
+     --from-literal=token="$NEW_TOKEN" \
+     --dry-run=client -o yaml \
+     | kubectl apply -f -
+   ```
+5. Roll the deployment to pick up the new env var:
+   ```bash
+   kubectl -n aycemon rollout restart deployment/aycemon
+   kubectl -n aycemon rollout status deployment/aycemon --timeout=180s
+   ```
+6. Verify the new token works (expect HTTP 200) and the old one does
+   not (expect HTTP 401):
+   ```bash
+   POD=$(kubectl -n aycemon get pod -l app=aycemon \
+     -o jsonpath='{.items[0].metadata.name}')
+   kubectl -n aycemon exec "$POD" -- sh -c \
+     "wget -qO- --header='Authorization: Bearer $NEW_TOKEN' \
+       http://localhost:3000/api/metrics | head -5"
+   # Expect: Prometheus text-format lines starting with `# HELP …`.
+
+   kubectl -n aycemon exec "$POD" -- sh -c \
+     "wget -S -qO- --header='Authorization: Bearer wrong-token' \
+       http://localhost:3000/api/metrics 2>&1 | grep 'HTTP/'"
+   # Expect: `HTTP/1.1 401 Unauthorized`.
+   ```
+7. Confirm Prometheus resumes scraping without 401s:
+   ```bash
+   kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus --tail=50 \
+     | grep -i 'aycemon.*401' || echo "clean"
+   ```
+   A single 401 immediately after the rotation is expected (race
+   between the two secret writes); sustained 401s mean the
+   `aycemon-metrics-scrape` and `aycemon-secrets` tokens diverged.
+
+The token is low-sensitivity relative to the Supabase service-role key
+(it leaks resident memory numbers and the build's git SHA — no user
+data, no auth material), so a rotation with a few-second scrape gap is
+acceptable. Never write the token to logs, CI output, or PR bodies —
+treat it like any other bearer credential.
+
 ### Upstash Redis tokens
 
 Upstash tokens are baked into the `UPSTASH_REDIS_REST_URL` and
