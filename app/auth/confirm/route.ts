@@ -13,6 +13,22 @@ import { createClient } from "@/lib/supabase/server";
 //   node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md
 // `cookies()` inside the awaited server client is async per:
 //   node_modules/next/dist/docs/01-app/03-api-reference/04-functions/cookies.md
+
+// Next.js standalone (Docker / K8s) constructs `request.url` from the
+// HOSTNAME + PORT env vars the server binds to — `0.0.0.0:3000` in our
+// container. It does NOT trust X-Forwarded-Host from a reverse proxy
+// like ingress-nginx. Using `request.url` as the redirect base produces
+// links like `https://0.0.0.0:3000/login?...` which browsers refuse to
+// follow. Derive the externally-visible origin from the forwarded /
+// Host headers instead. Vercel's Next.js runtime sets these headers
+// correctly too, so this stays correct on both deployments.
+function externalOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost ?? request.headers.get("host") ?? "localhost";
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  return `${proto}://${host}`;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const token_hash = searchParams.get("token_hash");
@@ -22,9 +38,11 @@ export async function GET(request: NextRequest) {
   // URLs to prevent open-redirect attacks after OTP verification.
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
+  const origin = externalOrigin(request);
+
   if (!token_hash || !type) {
     return NextResponse.redirect(
-      new URL("/login?error=confirm_failed", request.url),
+      new URL("/login?error=confirm_failed", origin),
     );
   }
 
@@ -33,9 +51,9 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL("/login?error=confirm_failed", request.url),
+      new URL("/login?error=confirm_failed", origin),
     );
   }
 
-  return NextResponse.redirect(new URL(next, request.url));
+  return NextResponse.redirect(new URL(next, origin));
 }
