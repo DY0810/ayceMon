@@ -37,6 +37,22 @@ spec:
       ports:
         - protocol: TCP
           port: 3000
+    # Prometheus Operator scrape of /api/metrics. The endpoint itself is
+    # gated by METRICS_SCRAPE_TOKEN so even if this selector widens to
+    # include a hostile namespace, the response is a 401 rather than a
+    # data leak. The selector uses the automatic
+    # `kubernetes.io/metadata.name` label so a workload cannot mint a
+    # namespace with a fake name to bypass it. If the operator is deployed
+    # outside the `monitoring` namespace, widen this rule explicitly
+    # (do NOT drop the namespaceSelector — that would allow any pod in the
+    # cluster to scrape).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 3000
   egress:
     # DNS — restricted to kube-system CoreDNS pods. The
     # kubernetes.io/metadata.name label is a Kubernetes v1.22+ automatic

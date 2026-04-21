@@ -1,0 +1,58 @@
+# Prometheus Operator ServiceMonitor for the ayceMon /api/metrics endpoint.
+#
+# Assumes:
+#   - Prometheus Operator (kube-prometheus-stack or equivalent) is installed,
+#     typically in the `monitoring` namespace.
+#   - The operator's `serviceMonitorSelector` matches one of the labels set
+#     below. kube-prometheus-stack's chart default is
+#       release: kube-prometheus-stack
+#     but other distributions use `app: prometheus` or a team-scoped label.
+#     If scraping never starts after apply, re-check the operator's selector
+#     with `kubectl -n monitoring get prometheus -o yaml | yq .spec.serviceMonitorSelector`.
+#
+# Scrape auth:
+#   - /api/metrics is gated by METRICS_SCRAPE_TOKEN (see k8s/secret.yaml).
+#   - The operator injects the bearer token from the Secret named below,
+#     which MUST live in the SAME namespace as this ServiceMonitor (aycemon)
+#     — Prometheus Operator resolves `spec.endpoints[].authorization.credentials`
+#     against the ServiceMonitor's namespace, NOT the Prometheus pod's.
+#   - Seed it from the existing aycemon-secrets value:
+#       kubectl -n aycemon create secret generic aycemon-metrics-scrape \
+#         --from-literal=token="$(kubectl -n aycemon get secret aycemon-secrets \
+#           -o jsonpath='{.data.METRICS_SCRAPE_TOKEN}' | base64 -d)" \
+#         --dry-run=client -o yaml | kubectl apply -f -
+#     Rotate this Secret whenever aycemon-secrets.METRICS_SCRAPE_TOKEN rotates
+#     (see docs/k8s-runbook.md §6).
+#
+# Network reachability:
+#   - k8s/networkpolicy.yaml allows ingress from pods in the `monitoring`
+#     namespace on port 3000 (matched by the `kubernetes.io/metadata.name`
+#     automatic namespace label). If the Prometheus Operator lives in a
+#     differently-named namespace, widen that policy accordingly.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aycemon
+  namespace: aycemon
+  labels:
+    app: aycemon
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: aycemon
+  namespaceSelector:
+    matchNames:
+      - aycemon
+  endpoints:
+    - port: http
+      path: /api/metrics
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+      authorization:
+        type: Bearer
+        credentials:
+          name: aycemon-metrics-scrape
+          key: token
