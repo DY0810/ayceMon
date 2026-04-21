@@ -4,8 +4,17 @@ metadata:
   name: aycemon-ingress
   namespace: aycemon
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Staging until a public hostname is wired. See
+    # k8s/cert-manager/cluster-issuer.yaml for the activation checklist
+    # before flipping to letsencrypt-prod.
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    # Both annotations are set intentionally (not redundantly):
+    # - ssl-redirect fires only when ingress-nginx terminates TLS directly.
+    # - force-ssl-redirect fires unconditionally — required when a cloud
+    #   load balancer in front terminates TLS and forwards plain HTTP, a
+    #   topology in which ssl-redirect alone would never fire.
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:

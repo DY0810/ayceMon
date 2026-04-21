@@ -1,0 +1,69 @@
+# cert-manager ClusterIssuers for ayceMon.
+#
+# This file is cluster-scoped infrastructure — it is NOT bundled into the
+# app manifest set (skaffold.yaml explicitly excludes k8s/cert-manager/*)
+# and is applied AFTER cert-manager itself is installed.
+#
+# Install cert-manager first:
+#   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.1/cert-manager.yaml
+#   kubectl -n cert-manager wait --for=condition=Available deployment --all --timeout=180s
+#
+# Then:
+#   kubectl apply -f k8s/cert-manager/cluster-issuer.yaml
+#   kubectl get clusterissuer letsencrypt-staging -o jsonpath='{.status.conditions[0]}'
+#
+# Ship letsencrypt-staging first; switch the ingress annotation to
+# letsencrypt-prod only after (1) a public hostname resolves to the
+# ingress controller and (2) the staging issuer has issued a cert to
+# the same hostname. Production ACME has a 5-duplicate-certs-per-week
+# ceiling; staging has none.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # MUST be replaced before `kubectl apply`. Let's Encrypt sends expiry
+    # warnings (30/14/7 days) and rate-limit notices to this address — if
+    # it is unmonitored, the first signal of trouble is an outage.
+    email: REPLACE-ME-WITH-TEAM-ALIAS@aycemon.app
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+---
+# letsencrypt-prod is intentionally commented out.
+#
+# ACTIVATION CHECKLIST — do NOT uncomment until all four hold:
+#   1. A real hostname (e.g. aycemon.app) has an A/AAAA record pointing
+#      at this cluster's ingress controller LoadBalancer IP.
+#   2. `curl http://<host>/.well-known/acme-challenge/probe` reaches the
+#      cluster from the public internet (not just your laptop).
+#   3. letsencrypt-staging has successfully issued a cert for the same
+#      hostname — verified via `kubectl describe certificate -n aycemon`.
+#   4. The Ingress in k8s/ingress.yaml has been updated to use the real
+#      hostname instead of `aycemon.local`.
+#
+# Only then: uncomment below, `kubectl apply`, and flip the annotation
+# in k8s/ingress.yaml from `letsencrypt-staging` to `letsencrypt-prod`.
+# Prod ACME enforces 50 certs/domain/week and 5 duplicate certs/week;
+# a misconfigured rollout burns that budget fast.
+#
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     email: REPLACE-ME-WITH-TEAM-ALIAS@aycemon.app
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     privateKeySecretRef:
+#       name: letsencrypt-prod-account
+#     solvers:
+#       - http01:
+#           ingress:
+#             ingressClassName: nginx

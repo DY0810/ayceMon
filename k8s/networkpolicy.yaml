@@ -1,3 +1,19 @@
+# Baseline: deny every pod in the namespace by default. The per-workload
+# policy below opens specific ingress/egress for the aycemon pods; any
+# other pod that lands in the namespace (migration job, debug shell,
+# future workload) inherits the deny until it ships its own policy.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: aycemon
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,20 +31,41 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
-        - podSelector:
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: ingress-nginx
       ports:
         - protocol: TCP
           port: 3000
   egress:
-    # DNS resolution
-    - ports:
-        - protocol: TCP
-          port: 53
+    # DNS — restricted to kube-system CoreDNS pods. The
+    # kubernetes.io/metadata.name label is a Kubernetes v1.22+ automatic
+    # NamespaceDefaultLabel and cannot be overwritten by workloads.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
         - protocol: UDP
           port: 53
-    # HTTPS for Supabase and Google Places API
+        - protocol: TCP
+          port: 53
+    # HTTPS egress to external third-party services:
+    #   *.supabase.co          — database, auth, storage
+    #   *.upstash.io           — rate limiter (Redis REST + TCP 6379 TLS)
+    #   places.googleapis.com  — restaurant search
+    #
+    # NetworkPolicy v1 cannot restrict by FQDN: the spec only supports
+    # podSelector / namespaceSelector / ipBlock in the `to` field.
+    # CDN-backed endpoints (especially Upstash + googleapis.com) resolve
+    # to dynamic IP ranges, so pinning to ipBlock is unmaintainable.
+    #
+    # For an FQDN-tight egress policy, use k8s/cilium-networkpolicy.yaml
+    # on a cluster running Cilium CNI. On vanilla kindnet / kube-proxy
+    # this broader TCP/443 rule is the safest honest policy.
     - ports:
         - protocol: TCP
           port: 443
