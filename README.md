@@ -180,18 +180,34 @@ The app is then at [http://localhost:8080](http://localhost:8080). Live rebuild 
 
 Toolchain versions are pinned in the `Makefile` (`KIND_VERSION`, `SKAFFOLD_VERSION`, `INGRESS_NGINX_VERSION`) so `make doctor` fails loudly when a laptop drifts.
 
-**Production deploy.** Raw manifests live in `k8s/`. Apply directly with `kubectl apply -f k8s/` after editing `k8s/secret.yaml` with real base64-encoded secrets. The namespace enforces `pod-security.kubernetes.io/enforce: restricted`, so the pod `securityContext` pins `seccompProfile: RuntimeDefault` while the container `securityContext` drops all capabilities. TLS is wired through cert-manager (`k8s/cert-manager/cluster-issuer.yaml`) — flip to `letsencrypt-prod` once a public hostname replaces `aycemon.local`. The metrics scrape surface is covered in [`k8s/README.md`](k8s/README.md); the secret-rotation runbook lives at [`docs/k8s-runbook.md`](docs/k8s-runbook.md).
+**Production deploy.** Raw manifests live in `k8s/`. Apply directly with `kubectl apply -f k8s/` after editing `k8s/secret.yaml` with real base64-encoded secrets. The namespace enforces `pod-security.kubernetes.io/enforce: restricted`, so the pod `securityContext` pins `seccompProfile: RuntimeDefault` while the container `securityContext` drops all capabilities. TLS is wired through cert-manager (`k8s/cert-manager/cluster-issuer.yaml`). The metrics scrape surface is covered in [`k8s/README.md`](k8s/README.md); the secret-rotation runbook lives at [`docs/k8s-runbook.md`](docs/k8s-runbook.md).
 
 ![TLS cert](docs/screenshots/tls-cert.png)
 
+## Live production
+
+The app is dual-hosted: Vercel serves `https://aycemon.vercel.app` (canonical user-facing origin), and a GKE Autopilot cluster serves a K8s-native mirror.
+
+- **Kubernetes URL:** https://aycemon.34-105-65-50.nip.io (Let's Encrypt prod cert, valid through 2026-07-20)
+- **Cluster:** GKE Autopilot `aycemon-prod` in `us-west1`, ~$27–32/mo post-trial
+- **Image registry:** `ghcr.io/dy0810/aycemon:sha-<commit>` (public GHCR package)
+- **Provisioning runbook:** [`docs/k8s-runbook.md`](docs/k8s-runbook.md) — reproduces the cluster from scratch including the Autopilot-specific gotchas (cert-manager Helm install, ingress-nginx snippet-risk flags, ACME solver NetworkPolicy)
+
 ## CI/CD
 
-A GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and pushes the Docker image to GHCR:
+A GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds the Docker image on every PR and automatically deploys merges to main onto the GKE cluster.
 
-- **On merge to `main`:** builds, tags with the Git SHA + `latest`, and pushes to `ghcr.io/dy0810/aycemon`.
-- **On pull requests:** builds only (dry-run, no push).
+- **`build` job** — runs on every PR and push. Builds with docker, tags `sha-<short>` + `latest` (on main), pushes to GHCR.
+- **`deploy` job** — runs only on `push` to main. Authenticates against GCP via the `github-deployer` service account, fetches GKE credentials, rolls the deployment to the freshly-pushed SHA tag.
 
-**Required GitHub Variables** (not Secrets — these are public):
+**Required GitHub Variables** (not Secrets — these are public / non-sensitive):
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL` — baked into the Docker image at build time
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — baked into the Docker image at build time
+- `GCP_PROJECT_ID` — target GCP project for the deploy job (`aycemon-494018`)
+- `GKE_CLUSTER_NAME` — target cluster (`aycemon-prod`)
+- `GKE_CLUSTER_REGION` — target region (`us-west1`)
+
+**Required GitHub Secrets:**
+
+- `GCP_SA_KEY` — JSON key for the `github-deployer` service account. SA has minimum-viable grants: `roles/container.clusterViewer` + `roles/container.developer`. Rotate via `gcloud iam service-accounts keys create /dev/stdout --iam-account=github-deployer@aycemon-494018.iam.gserviceaccount.com | gh secret set GCP_SA_KEY`.
