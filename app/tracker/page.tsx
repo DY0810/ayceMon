@@ -11,6 +11,7 @@ import {
   type CollaboratorName,
 } from "@/app/actions/shared-session";
 import { ShareDrawer } from "@/components/share-drawer";
+import { ContributorPanel } from "@/components/tracker/contributor-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -335,29 +336,40 @@ export default function TrackerPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 lg:px-8 lg:grid lg:grid-cols-3 lg:gap-10">
       {sharedSessionId ? (
-        <section
-          aria-label="Collaborators"
-          className="-mx-4 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4"
-        >
-          <p className="min-w-0 truncate text-foreground">
-            <span className="text-muted-foreground">
-              Eating with:
-            </span>{" "}
-            {renderCollaboratorRoster(
-              shared.collaborators,
-              collaboratorNames,
-              authUser ? authUser.id : null,
-            )}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setShareOpen(true)}
+        <>
+          {/* @mount:join-toast */}
+          <section
+            aria-label="Collaborators"
+            className="-mx-4 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4"
           >
-            Share
-          </Button>
-        </section>
+            <p className="min-w-0 truncate text-foreground">
+              <span className="text-muted-foreground">
+                Eating with:
+              </span>{" "}
+              {renderCollaboratorRoster(
+                shared.collaborators,
+                collaboratorNames,
+                authUser ? authUser.id : null,
+              )}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShareOpen(true)}
+            >
+              Share
+            </Button>
+          </section>
+          {shared.collaborators.length >= 2 ? (
+            <ContributorPanel
+              contributors={shared.contributors}
+              buffetPrice={buffetPrice}
+              selfUserId={authUser ? authUser.id : null}
+            />
+          ) : null}
+          {/* @mount:activity-feed */}
+        </>
       ) : null}
       <section
         aria-label="Live totals"
