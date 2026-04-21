@@ -6,6 +6,14 @@
 # placeholders. Applying that directly would fail schema validation;
 # this script generates a valid Secret via `kubectl create --dry-run`
 # and pipes into `kubectl apply` so both create and update work.
+#
+# Security notes:
+#   - Secret values are extracted via `grep | cut` rather than `source` to
+#     avoid evaluating `$(...)` / backtick substitutions that a hostile
+#     .env.local could smuggle in.
+#   - Values are passed to kubectl via a private-permissioned temp file
+#     (read with `--from-env-file`) rather than `--from-literal`, so they
+#     never appear in `/proc/<pid>/cmdline` or `ps` output.
 
 set -euo pipefail
 
@@ -21,17 +29,30 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
-set -a
-source "$ENV_FILE"
-set +a
+# Extract required keys without sourcing the file. `source` would evaluate
+# any `$(...)` or backtick expressions a hostile file had planted; plain
+# text extraction is inert.
+extract_env_var() {
+  # $1: var name
+  # $2: file path
+  # Prints VALUE (without the KEY= prefix) for the LAST line matching
+  # `^KEY=`. Strips surrounding single/double quotes and a trailing \r.
+  local key="$1" file="$2" raw
+  raw=$(grep -E "^${key}=" "$file" | tail -n1 | cut -d= -f2- || true)
+  raw="${raw%$'\r'}"
+  # strip matched pair of surrounding quotes, if any
+  if [[ "$raw" =~ ^\"(.*)\"$ ]] || [[ "$raw" =~ ^\'(.*)\'$ ]]; then
+    raw="${BASH_REMATCH[1]}"
+  fi
+  printf '%s' "$raw"
+}
+
+SUPABASE_SERVICE_ROLE_KEY=$(extract_env_var SUPABASE_SERVICE_ROLE_KEY "$ENV_FILE")
+GOOGLE_PLACES_API_KEY=$(extract_env_var GOOGLE_PLACES_API_KEY "$ENV_FILE")
 
 missing=()
-for var in SUPABASE_SERVICE_ROLE_KEY GOOGLE_PLACES_API_KEY; do
-  if [[ -z "${!var:-}" ]]; then
-    missing+=("$var")
-  fi
-done
+[[ -z "$SUPABASE_SERVICE_ROLE_KEY" ]] && missing+=("SUPABASE_SERVICE_ROLE_KEY")
+[[ -z "$GOOGLE_PLACES_API_KEY" ]] && missing+=("GOOGLE_PLACES_API_KEY")
 
 if (( ${#missing[@]} > 0 )); then
   echo "missing required vars in $ENV_FILE: ${missing[*]}" >&2
@@ -42,11 +63,21 @@ echo "==> Ensuring namespace $NAMESPACE exists"
 kubectl --context "$KUBE_CONTEXT" get ns "$NAMESPACE" >/dev/null 2>&1 \
   || kubectl --context "$KUBE_CONTEXT" create ns "$NAMESPACE"
 
+# Write the two keys to a 0600 temp file and pass via --from-env-file so
+# the secret values never land in argv (visible to `ps` / /proc/cmdline).
+SECRET_TMP="$(mktemp)"
+chmod 600 "$SECRET_TMP"
+cleanup() { rm -f "$SECRET_TMP"; }
+trap cleanup EXIT INT TERM
+{
+  printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SUPABASE_SERVICE_ROLE_KEY"
+  printf 'GOOGLE_PLACES_API_KEY=%s\n' "$GOOGLE_PLACES_API_KEY"
+} > "$SECRET_TMP"
+
 echo "==> Writing Secret $NAMESPACE/$SECRET_NAME"
 kubectl --context "$KUBE_CONTEXT" create secret generic "$SECRET_NAME" \
   --namespace "$NAMESPACE" \
-  --from-literal=SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-  --from-literal=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY" \
+  --from-env-file="$SECRET_TMP" \
   --dry-run=client -o yaml \
   | kubectl --context "$KUBE_CONTEXT" apply -f -
 
@@ -55,13 +86,26 @@ kubectl --context "$KUBE_CONTEXT" create secret generic "$SECRET_NAME" \
 # auth is unused — but kubelet logs a stream of warnings if the named secret
 # does not exist. A placeholder docker-registry secret silences that noise.
 #
-# HARD GUARD: only apply the placeholder when KUBE_CONTEXT is a kind-* context.
-# An operator who runs this script against a production context with a custom
-# KUBE_CONTEXT= override would otherwise overwrite the real ghcr-pull-secret
-# with bogus creds and cause the next `imagePullPolicy: Always` restart to
-# fail with ImagePullBackOff. See docs/k8s-runbook.md §7 for the prod procedure.
-if [[ "$KUBE_CONTEXT" != kind-* ]]; then
-  echo "==> Skipping placeholder ghcr-pull-secret — '$KUBE_CONTEXT' is not a kind context"
+# HARD GUARD: only apply the placeholder when BOTH
+#   1. KUBE_CONTEXT has the `kind-` prefix (kind CLI convention), AND
+#   2. The API server the context points at is a loopback address.
+#
+# The name-prefix alone is a social convention — a plausible custom naming
+# like `kind-prod` or `kind-aycemon-east` would slip past a glob-only check
+# and overwrite a real `ghcr-pull-secret` with bogus creds, causing the
+# next `imagePullPolicy: Always` restart to fail with ImagePullBackOff.
+# The loopback check verifies the cluster is actually local (kind binds the
+# apiserver to 127.0.0.1 or localhost by default). See docs/k8s-runbook.md
+# §7 for the real rotation procedure in production.
+api_server=$(kubectl --context "$KUBE_CONTEXT" config view --minify \
+  -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+is_loopback=0
+case "$api_server" in
+  https://127.0.0.1:*|https://localhost:*|https://[::1]:*) is_loopback=1 ;;
+esac
+if [[ "$KUBE_CONTEXT" != kind-* ]] || (( is_loopback == 0 )); then
+  echo "==> Skipping placeholder ghcr-pull-secret"
+  echo "    context='$KUBE_CONTEXT' apiServer='${api_server:-unknown}' is_loopback=$is_loopback"
   echo "    (use docs/k8s-runbook.md §7 to rotate the real image pull secret)"
   exit 0
 fi

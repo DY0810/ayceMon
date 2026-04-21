@@ -219,6 +219,10 @@ echo | openssl s_client -connect <hostname>:443 -servername <hostname> 2>/dev/nu
 # 5. Only now — and only if step 4 showed the prod issuer — clean up the
 #    staging account secret. The prod cert secret (aycemon-tls) is already
 #    updated by cert-manager in step 3; do NOT delete it.
+#    Note: deleting this staging account key is benign. If you ever roll
+#    back to letsencrypt-staging (see the rollback block below), cert-
+#    manager will register a fresh staging account on the next request —
+#    no manual recovery needed. Staging accounts are free and un-capped.
 kubectl -n cert-manager delete secret letsencrypt-staging-account
 ```
 
@@ -336,11 +340,17 @@ In production, this is a GitHub Container Registry PAT scoped to
 ```bash
 # Assume $GHCR_USER and $GHCR_TOKEN are set in your shell from a fresh
 # PAT at https://github.com/settings/tokens.
+#
+# --docker-email is stored in the dockerconfigjson Secret (base64, not
+# encrypted) and is visible to anyone with `kubectl get secret` in the
+# namespace. Use a team alias, NOT the PAT owner's GitHub username —
+# the username is a handle an attacker can use to target the privileged
+# account directly (credential stuffing, targeted phishing).
 kubectl -n aycemon create secret docker-registry ghcr-pull-secret \
   --docker-server=ghcr.io \
   --docker-username="$GHCR_USER" \
   --docker-password="$GHCR_TOKEN" \
-  --docker-email="$GHCR_USER@users.noreply.github.com" \
+  --docker-email="deploy@aycemon.app" \
   --dry-run=client -o yaml \
   | kubectl apply -f -
 
@@ -404,15 +414,27 @@ authoritative policy on clusters where Cilium is installed.
 kubectl -n aycemon describe certificate aycemon-tls | tail -40
 # Look for Events: shows renewal attempts and any ACME errors.
 
-# Force re-issuance (deletes the secret, cert-manager rebuilds it):
-kubectl -n aycemon delete secret aycemon-tls
+# Force re-issuance WITHOUT deleting the Secret. Deleting aycemon-tls
+# would cause ingress-nginx to fall back to the self-signed default cert
+# during the re-issue gap — on HSTS-preloaded hostnames, any browser
+# that hits the fallback during that window hard-fails and the user
+# cannot click through. See §5 for the full rationale.
+#
+# Instead, delete the most recent CertificateRequest. cert-manager
+# rebuilds it in place, keeping the old Secret live until the new cert
+# is written atomically.
+kubectl -n aycemon delete certificaterequest \
+  "$(kubectl -n aycemon get certificaterequest \
+    -l cert-manager.io/certificate-name=aycemon-tls \
+    --sort-by=.metadata.creationTimestamp \
+    -o jsonpath='{.items[-1:].metadata.name}')"
 kubectl -n aycemon get certificate aycemon-tls -w
 ```
 
 If the ACME rate limit is hit (error contains `too many certificates
 already issued for exact set of domains`), wait — the Let's Encrypt
 limit is 5 duplicate certs/week and resets on a rolling window. Do
-NOT repeatedly delete and re-apply; that burns more budget.
+NOT repeatedly force re-issuance; that burns more budget.
 
 ### Lost or corrupted TLS secret
 
@@ -463,10 +485,16 @@ kubectl -n aycemon logs -l app=aycemon --tail=50
 # print the raw key material. Even a prefix of a Supabase service-role
 # JWT is enough to authenticate, so `head -c 40` on a decoded secret
 # is a leak vector (terminal recordings, pasted issue bodies, scrollback).
+# Run from the repo root so `.env.local` resolves. A relative path that
+# silently reads an empty string would hash to `e3b0c44...` and display
+# a confident MISMATCH — worse than a file-not-found error.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+test -f "$REPO_ROOT/.env.local" || { echo "no .env.local at $REPO_ROOT" >&2; exit 1; }
+
 cluster_digest=$(kubectl -n aycemon get secret aycemon-secrets \
   -o jsonpath='{.data.SUPABASE_SERVICE_ROLE_KEY}' \
   | base64 -d | shasum -a 256 | cut -d' ' -f1)
-local_digest=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' .env.local \
+local_digest=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$REPO_ROOT/.env.local" \
   | cut -d= -f2- | tr -d '"'"'" | tr -d '\n' \
   | shasum -a 256 | cut -d' ' -f1)
 [ "$cluster_digest" = "$local_digest" ] && echo "match" || echo "MISMATCH"
@@ -490,13 +518,23 @@ Symptom: app pods Ready but /api/health returns 500 / 503 and logs
 show `ECONNREFUSED` / `ETIMEDOUT` on Supabase calls.
 
 ```bash
-# Temporarily delete the policy to confirm it's the cause:
-kubectl -n aycemon delete networkpolicy aycemon-netpol
+# Temporarily remove BOTH policies to confirm networkpolicy is the cause.
+# Deleting only aycemon-netpol leaves default-deny-all active and the
+# pods still have no egress — the symptom will not change, and you will
+# mis-diagnose networkpolicy as "not the cause." Both must come down
+# together for a valid negative test.
+kubectl -n aycemon delete networkpolicy aycemon-netpol default-deny-all
 
-# If the app recovers, re-apply after fixing the missing egress rule:
+# If the app recovers, the egress rule is what needs fixing. Re-apply the
+# full file (recreates both policies together) after adding the missing
+# rule:
 kubectl -n aycemon apply -f k8s/networkpolicy.yaml
 ```
 
-Never leave the cluster without a NetworkPolicy during an incident
-beyond the triage window. Write a short post-incident note and update
-section 8 above with the missing rule.
+The window where both policies are down is an exposure window — every
+pod in the namespace has unrestricted ingress/egress. Keep it as short
+as physically possible: confirm the hypothesis with a single `curl`
+from the pod, then re-apply. Never leave the cluster without a
+NetworkPolicy during an incident beyond the triage window. Write a
+short post-incident note and update section 8 above with the missing
+rule.

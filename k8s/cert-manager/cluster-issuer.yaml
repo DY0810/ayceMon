@@ -24,9 +24,10 @@ metadata:
   name: letsencrypt-staging
 spec:
   acme:
-    # Replace with a real team alias before production use. Let's Encrypt
-    # sends expiry warnings and rate-limit notices to this address.
-    email: ops@aycemon.app
+    # MUST be replaced before `kubectl apply`. Let's Encrypt sends expiry
+    # warnings (30/14/7 days) and rate-limit notices to this address — if
+    # it is unmonitored, the first signal of trouble is an outage.
+    email: REPLACE-ME-WITH-TEAM-ALIAS@aycemon.app
     server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-staging-account
@@ -58,7 +59,7 @@ spec:
 #   name: letsencrypt-prod
 # spec:
 #   acme:
-#     email: ops@aycemon.app
+#     email: REPLACE-ME-WITH-TEAM-ALIAS@aycemon.app
 #     server: https://acme-v02.api.letsencrypt.org/directory
 #     privateKeySecretRef:
 #       name: letsencrypt-prod-account
