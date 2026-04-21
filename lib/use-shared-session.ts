@@ -72,7 +72,7 @@ interface SharedSessionApi {
 export interface SharedSessionView {
   session: Session | null;
   collaborators: SharedSessionApi["collaborators"];
-  contributors: LiveContributor[];
+  contributors: readonly LiveContributor[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
