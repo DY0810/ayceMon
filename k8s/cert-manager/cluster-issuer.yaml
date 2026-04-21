@@ -53,17 +53,17 @@ spec:
 # Prod ACME enforces 50 certs/domain/week and 5 duplicate certs/week;
 # a misconfigured rollout burns that budget fast.
 #
-# apiVersion: cert-manager.io/v1
-# kind: ClusterIssuer
-# metadata:
-#   name: letsencrypt-prod
-# spec:
-#   acme:
-#     email: dongyeop0810@gmail.com
-#     server: https://acme-v02.api.letsencrypt.org/directory
-#     privateKeySecretRef:
-#       name: letsencrypt-prod-account
-#     solvers:
-#       - http01:
-#           ingress:
-#             ingressClassName: nginx
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: dongyeop0810@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
