@@ -77,6 +77,11 @@ jobs:
 
       - name: Deploy to GKE
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo $GITHUB_SHA | cut -c1-7)"
+          # Docker/OCI require lowercase image names. github.repository
+          # preserves the repo's casing (DY0810/ayceMon), so we must
+          # lowercase it explicitly — the build job's metadata-action
+          # already lowercases before pushing to GHCR.
+          IMAGE_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="${{ env.REGISTRY }}/${IMAGE_LOWER}:sha-$(echo $GITHUB_SHA | cut -c1-7)"
           kubectl set image deployment/aycemon aycemon=$IMAGE -n aycemon
-          kubectl rollout status deployment/aycemon -n aycemon --timeout=180s
+          kubectl rollout status deployment/aycemon -n aycemon --timeout=240s
