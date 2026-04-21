@@ -55,16 +55,28 @@ jobs:
       contents: read
 
     steps:
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      # Authenticate the runner against GCP using the github-deployer
+      # service account. The SA has roles/container.clusterViewer +
+      # roles/container.developer on the project — enough to fetch
+      # cluster credentials and roll a Deployment, nothing more.
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+      # Installs gke-gcloud-auth-plugin + writes a kubeconfig that
+      # targets the specified GKE cluster. This replaces the old
+      # base64-KUBE_CONFIG dance, which broke on GKE because stock
+      # kubectl can't auth against GKE without the plugin.
+      - name: Fetch GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
+          location: ${{ vars.GKE_CLUSTER_REGION }}
 
-      - name: Deploy to Kubernetes
+      - name: Deploy to GKE
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo $GITHUB_SHA | cut -c1-7)"
           kubectl set image deployment/aycemon aycemon=$IMAGE -n aycemon
-          kubectl rollout status deployment/aycemon -n aycemon --timeout=120s
+          kubectl rollout status deployment/aycemon -n aycemon --timeout=180s
