@@ -15,6 +15,21 @@ metadata:
     #   topology in which ssl-redirect alone would never fire.
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Hide the Prometheus scrape endpoint from the public internet. The
+    # in-app /api/metrics handler already gates on METRICS_SCRAPE_TOKEN
+    # (returns 401 without a valid bearer), but cluster-internal scrapes
+    # from Prometheus Operator bypass the Ingress entirely — they go
+    # pod-IP → pod-IP via the ServiceMonitor. There is no reason to leave
+    # /api/metrics reachable from the internet; doing so only gives
+    # attackers a chance to probe the 401 vs 404 behaviour and measure
+    # token-comparison timing.
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location = /api/metrics {
+        return 403;
+      }
+      location = /api/metrics/ {
+        return 403;
+      }
 spec:
   ingressClassName: nginx
   tls:

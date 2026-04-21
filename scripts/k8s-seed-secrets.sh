@@ -49,6 +49,10 @@ extract_env_var() {
 
 SUPABASE_SERVICE_ROLE_KEY=$(extract_env_var SUPABASE_SERVICE_ROLE_KEY "$ENV_FILE")
 GOOGLE_PLACES_API_KEY=$(extract_env_var GOOGLE_PLACES_API_KEY "$ENV_FILE")
+# Optional — when set, enables the token-gated /api/metrics endpoint for
+# Prometheus scraping. Absent value = endpoint stays 404. See
+# docs/k8s-runbook.md §6 for the rotation procedure.
+METRICS_SCRAPE_TOKEN=$(extract_env_var METRICS_SCRAPE_TOKEN "$ENV_FILE")
 
 missing=()
 [[ -z "$SUPABASE_SERVICE_ROLE_KEY" ]] && missing+=("SUPABASE_SERVICE_ROLE_KEY")
@@ -72,6 +76,9 @@ trap cleanup EXIT INT TERM
 {
   printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SUPABASE_SERVICE_ROLE_KEY"
   printf 'GOOGLE_PLACES_API_KEY=%s\n' "$GOOGLE_PLACES_API_KEY"
+  if [[ -n "$METRICS_SCRAPE_TOKEN" ]]; then
+    printf 'METRICS_SCRAPE_TOKEN=%s\n' "$METRICS_SCRAPE_TOKEN"
+  fi
 } > "$SECRET_TMP"
 
 echo "==> Writing Secret $NAMESPACE/$SECRET_NAME"
