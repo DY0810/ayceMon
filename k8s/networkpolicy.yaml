@@ -85,3 +85,33 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
+---
+# cert-manager ACME HTTP-01 solver. cert-manager creates a transient
+# Pod + Ingress at `/.well-known/acme-challenge/<token>` for each cert
+# issuance/renewal. The solver pod carries the label
+# `acme.cert-manager.io/http01-solver=true` (not `app=aycemon`), so the
+# default-deny-all policy blocks it and the challenge self-check fails
+# with "context deadline exceeded". This rule opens port 8089 from the
+# ingress-nginx namespace to solver pods specifically.
+#
+# Without this rule, the cert-manager bootstrap on a fresh cluster stalls
+# indefinitely at challenge phase.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-http01-solver
+  namespace: aycemon
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8089
