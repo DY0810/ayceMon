@@ -192,4 +192,41 @@
     opacity: 0;
     animation: ayce-fade-up 500ms ease-out both;
   }
+
+  /* Toast (Phase 7): slide up + fade on enter, slide down + fade on exit.
+     Exit runs at ~75% of entrance per animate-skill guidance — faster out
+     than in so a dismissed toast doesn't loiter. Both keyframes no-op
+     under prefers-reduced-motion because the @media gate excludes them
+     entirely; the toast then simply appears/disappears.
+
+     Targeted via base-ui's data-starting-style / data-ending-style
+     attributes directly in CSS — a custom keyframe class cannot be
+     composed through Tailwind's `data-[...]:` modifier in v4 because
+     that modifier only wraps registered utilities. */
+  @keyframes ayce-toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes ayce-toast-exit {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  [data-slot="toast"][data-starting-style] {
+    animation: ayce-toast-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  [data-slot="toast"][data-ending-style] {
+    animation: ayce-toast-exit 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
