@@ -13,7 +13,12 @@ import {
 import { ShareDrawer } from "@/components/share-drawer";
 import { ActivityFeed } from "@/components/tracker/activity-feed";
 import { ContributorPanel } from "@/components/tracker/contributor-panel";
+import { JoinDetector } from "@/components/tracker/join-detector";
 import { Button } from "@/components/ui/button";
+import {
+  ToastProvider,
+  ToastViewport,
+} from "@/components/ui/toast";
 import {
   Card,
   CardContent,
@@ -144,6 +149,14 @@ export default function TrackerPage() {
       cancelled = true;
     };
   }, [sharedSessionId, collaboratorIdsKey]);
+
+  // Phase 7 — stable user_id → displayName map for the join-detector. Memoized
+  // on the resolved names so JoinDetector's effect isn't retriggered by a
+  // fresh Map reference every parent render.
+  const displayNameById = useMemo(
+    () => new Map(collaboratorNames.map((n) => [n.userId, n.displayName])),
+    [collaboratorNames],
+  );
 
   // Redirect guard: no session → /setup. Wait for hydration to avoid
   // bouncing on the initial render before persisted state is loaded.
@@ -337,8 +350,13 @@ export default function TrackerPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 lg:px-8 lg:grid lg:grid-cols-3 lg:gap-10">
       {sharedSessionId ? (
-        <>
-          {/* @mount:join-toast */}
+        <ToastProvider>
+          <JoinDetector
+            collaborators={shared.collaborators}
+            displayNameById={displayNameById}
+            selfUserId={authUser ? authUser.id : null}
+          />
+          <ToastViewport />
           <section
             aria-label="Collaborators"
             className="-mx-4 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 text-sm tracking-[0.01em] lg:col-span-3 lg:mx-0 lg:px-0 lg:py-4"
@@ -374,7 +392,7 @@ export default function TrackerPage() {
             now={shared.lastPolledAt}
             selfUserId={authUser ? authUser.id : null}
           />
-        </>
+        </ToastProvider>
       ) : null}
       <section
         aria-label="Live totals"

@@ -151,6 +151,39 @@ test.describe("shared session invite flow", () => {
     ).toBeVisible();
 
     // --------------------------------------------------------------------
+    // 3a. Phase 7 join toast — owner's tracker must announce the invitee.
+    //     The 2.5s poll + render budget is why we give this a long timeout.
+    //     The toast viewport is base-ui's `role="region" aria-label="Notifications"`;
+    //     the toast itself carries the "<name> joined" title.
+    // --------------------------------------------------------------------
+    const inviteeLocalPart = INVITEE_EMAIL.split("@")[0];
+    await expect(
+      ownerPage
+        .getByRole("region", { name: "Notifications" })
+        .getByText(new RegExp(`${escapeRegExp(inviteeLocalPart)}.*joined`)),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // --------------------------------------------------------------------
+    // 3b. Reload owner's /tracker with the invitee already present. The
+    //     mount-time seed must treat the existing roster as baseline and
+    //     NOT fire a toast on reload. We allow the 4s auto-dismiss plus
+    //     a margin to pass, then assert no toast is visible.
+    // --------------------------------------------------------------------
+    await ownerPage.reload();
+    await expect(
+      ownerPage.getByRole("button", { name: "Finish meal" }),
+    ).toBeVisible({ timeout: 10_000 });
+    // Wait past the 4s auto-dismiss window + 2.5s poll budget so any
+    // spurious toast would have had time to both render and dismiss. A
+    // 4-poll watch window catches both "toast fires and auto-dismisses"
+    // and "toast fires late." No toast should appear in this window.
+    const rosterNotifications = ownerPage
+      .getByRole("region", { name: "Notifications" })
+      .getByText(/joined/);
+    await ownerPage.waitForTimeout(7_000);
+    await expect(rosterNotifications).toHaveCount(0);
+
+    // --------------------------------------------------------------------
     // 4. Both users log something against the shared session.
     //    Invitee uses `+g` → 30g of shared sashimi.
     //    Owner uses `+1`  → one unit of shared sashimi.
@@ -210,6 +243,10 @@ interface LibraryItemInput {
   name: string;
   value: string;
   grams: number;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function addManualLibraryItem(
