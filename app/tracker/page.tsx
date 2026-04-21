@@ -11,6 +11,7 @@ import {
   type CollaboratorName,
 } from "@/app/actions/shared-session";
 import { ShareDrawer } from "@/components/share-drawer";
+import { ActivityFeed } from "@/components/tracker/activity-feed";
 import { ContributorPanel } from "@/components/tracker/contributor-panel";
 import { Button } from "@/components/ui/button";
 import {
@@ -368,7 +369,11 @@ export default function TrackerPage() {
               selfUserId={authUser ? authUser.id : null}
             />
           ) : null}
-          {/* @mount:activity-feed */}
+          <ActivityFeed
+            activity={shared.activity}
+            now={shared.lastPolledAt}
+            selfUserId={authUser ? authUser.id : null}
+          />
         </>
       ) : null}
       <section
