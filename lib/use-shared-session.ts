@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { aggregateActivity } from "./aggregate-activity";
 import { aggregateContributors } from "./aggregate-contributors";
-import type { EatenEntry, Item, LiveContributor, Session } from "./types";
+import type {
+  EatenEntry,
+  Item,
+  LiveActivityEvent,
+  LiveContributor,
+  Session,
+} from "./types";
 
 // Phase 6 (collab-and-quantitative-appetite): client-side view of a
 // server-backed shared session. Polls /api/shared-session/[id] and
@@ -73,6 +80,13 @@ export interface SharedSessionView {
   session: Session | null;
   collaborators: SharedSessionApi["collaborators"];
   contributors: readonly LiveContributor[];
+  activity: readonly LiveActivityEvent[];
+  /** Epoch ms of the last successful poll. Seeded to mount time so
+   *  relative-time consumers have a valid reference on first render,
+   *  before the first fetch resolves. Only advances on success; a failed
+   *  poll leaves this stale so stale-time labels don't silently "freeze"
+   *  at a later instant than the data they annotate. */
+  lastPolledAt: number;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -181,6 +195,10 @@ export function useSharedSession(
   const [rawEntries, setRawEntries] = useState<SharedSessionApi["entries"]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(sharedSessionId));
   const [error, setError] = useState<string | null>(null);
+  // Mount-time seed keeps first-paint relative-time labels sane before the
+  // first fetch resolves. Advanced only on a successful response — see
+  // fetchOnce below for rationale.
+  const [lastPolledAt, setLastPolledAt] = useState<number>(() => Date.now());
   const displayNameById = options?.displayNameById;
   // Latest-requested id. In-flight fetches close over a local `id` snapshot
   // and compare against this ref on resolve so a stale response can't write
@@ -215,6 +233,12 @@ export function useSharedSession(
       setCollaborators(data.collaborators);
       setRawItems(data.items);
       setRawEntries(data.entries);
+      // Stamp the poll instant here (post-await, inside an async callback
+      // invoked by setInterval/useEffect — not during render), so the
+      // ActivityFeed can key its relative-time labels off a value that
+      // advances on the hook's heartbeat without calling Date.now() in
+      // the render path.
+      setLastPolledAt(Date.now());
       setError(null);
     } catch {
       if (activeIdRef.current === id) setError("fetch_failed");
@@ -266,10 +290,21 @@ export function useSharedSession(
     [rawItems, rawEntries, collaborators, displayNameById],
   );
 
+  const activity = useMemo(
+    () =>
+      aggregateActivity(
+        { items: rawItems, entries: rawEntries },
+        displayNameById,
+      ),
+    [rawItems, rawEntries, displayNameById],
+  );
+
   return {
     session,
     collaborators,
     contributors,
+    activity,
+    lastPolledAt,
     loading,
     error,
     refresh,
