@@ -34,10 +34,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - aycemon.local
+        - aycemon.34-105-65-50.nip.io
       secretName: aycemon-tls
   rules:
-    - host: aycemon.local
+    - host: aycemon.34-105-65-50.nip.io
       http:
         paths:
           - path: /
