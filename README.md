@@ -2,13 +2,31 @@
 
 Track whether you're beating the buffet. Start a session, build a library of items with their à la carte prices, eat strategically, and see if you got your money's worth.
 
+The visual system — monochrome data surfaces, a single persimmon accent for brand moments, motion and spacing rules — is canonicalized in [`DESIGN.md`](DESIGN.md). New UI should consult it before touching tokens.
+
 ## Features
 
-### Shared sessions (invite a friend)
+### Collaborative tracking
 
-Signed-in users can turn any session into a **shared session**: the owner mints a short-lived invite link from the Share drawer, collaborators open the link, authenticate, and log their *own* eaten entries against the same session. The owner can finalize when everyone's done — the result page on `/history/[id]` shows per-user attribution.
+Signed-in users can turn any session into a **shared session**: the owner mints a short-lived invite link from the Share drawer, collaborators open the link, authenticate, and log their *own* eaten entries against the same session. Owners finalize when everyone's done — the result page on `/history/[id]` shows per-user attribution.
 
+While a shared session is live, `/tracker` surfaces:
 
+- **Per-person cost breakdown** — each collaborator's `$ eaten` and grams, with a fair-share progress bar against `buffetPrice / headcount`. Derived client-side from the 2.5s poll, not stored.
+
+  ![Per-person panel](docs/screenshots/contributor-panel.png)
+
+- **Activity feed** — reverse-chronological log of the last 20 entries across the table, with the current user's rows subtly tinted.
+
+  ![Activity feed](docs/screenshots/activity-feed.png)
+
+- **Join notifications** — a toast fires when a collaborator lands on the session, seeded against the mount-time roster so reloads don't spam.
+
+Owner's view of the share drawer:
+
+![Share drawer](docs/screenshots/share-drawer.png)
+
+Invite tokens are 22-char base64url, single-use, and expire in 24 hours.
 
 ### Grams-based appetite model
 
@@ -61,6 +79,8 @@ and are wired for local dev via `supabase/config.toml`. The hosted project's
 Dashboard templates must be mirrored manually after any template change — see
 [`docs/auth-email.md`](docs/auth-email.md) for the mirror runbook.
 
+![Confirmation email](docs/screenshots/branded-email.png)
+
 ## Google Places API Key
 
 1. Create a Google Cloud project and enable the **Places API (New)**.
@@ -104,7 +124,7 @@ node --env-file=.env.local node_modules/@playwright/test/cli.js test
 
 The `--env-file` flag loads `.env.local` so the specs see `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` — Playwright itself doesn't load that file, even though Next.js does. The Playwright config starts a dev server automatically (`npm run dev`).
 
-To regenerate the share-drawer screenshot used above:
+To regenerate `docs/screenshots/share-drawer.png`:
 
 ```bash
 SNAPSHOT_SHARE_DRAWER=1 node --env-file=.env.local node_modules/@playwright/test/cli.js test e2e/shared-session-invite.spec.ts
@@ -145,30 +165,24 @@ docker run -p 3000:3000 \
 docker compose up --build
 ```
 
-## Kubernetes
+## Quick start with Kubernetes
 
-Manifests live in `k8s/`. Before applying, edit `k8s/secret.yaml` and replace the placeholder values with real base64-encoded secrets:
-
-```bash
-echo -n "your-secret" | base64
-```
-
-**Deploy to a cluster:**
+Local cluster via kind + Skaffold + ingress-nginx. One command bootstraps everything:
 
 ```bash
-kubectl apply -f k8s/
-kubectl get pods -n aycemon       # verify pods are Running
+make doctor   # verify docker + kind + skaffold + .env.local
+make up       # create cluster, install ingress-nginx, build image, deploy app on :8080
 ```
 
-**Access locally via port-forward:**
+The app is then at [http://localhost:8080](http://localhost:8080). Live rebuild on file changes: `make dev`. Tail pod logs: `make logs`. Tear down: `make down`.
 
-```bash
-kubectl port-forward -n aycemon svc/aycemon-service 3000:80
-```
+![make up](docs/screenshots/make-up.png)
 
-Then open [http://localhost:3000](http://localhost:3000).
+Toolchain versions are pinned in the `Makefile` (`KIND_VERSION`, `SKAFFOLD_VERSION`, `INGRESS_NGINX_VERSION`) so `make doctor` fails loudly when a laptop drifts.
 
-See [`k8s/README.md`](k8s/README.md) for a minikube quick-start.
+**Production deploy.** Raw manifests live in `k8s/`. Apply directly with `kubectl apply -f k8s/` after editing `k8s/secret.yaml` with real base64-encoded secrets. The namespace enforces `pod-security.kubernetes.io/enforce: restricted`, so the pod `securityContext` pins `seccompProfile: RuntimeDefault` while the container `securityContext` drops all capabilities. TLS is wired through cert-manager (`k8s/cert-manager/cluster-issuer.yaml`) — flip to `letsencrypt-prod` once a public hostname replaces `aycemon.local`. The metrics scrape surface is covered in [`k8s/README.md`](k8s/README.md); the secret-rotation runbook lives at [`docs/k8s-runbook.md`](docs/k8s-runbook.md).
+
+![TLS cert](docs/screenshots/tls-cert.png)
 
 ## CI/CD
 

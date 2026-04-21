@@ -1,5 +1,7 @@
 # ayceMon — Docker & Kubernetes Deployment
 
+> **Status: COMPLETE** — shipped 2026-04-13.
+
 > **Objective:** Containerize the Next.js app with Docker and deploy it on Kubernetes, adding production-grade infrastructure (multi-stage builds, health checks, horizontal scaling, secrets management, and CI/CD).
 
 **Generated:** 2026-04-09 · **Mode:** branch-per-step (git + gh available)
