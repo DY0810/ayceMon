@@ -1,6 +1,8 @@
 # ayceMon — Collaborative Sessions + Quantitative Appetite Model
 
-**STATUS: COMPLETE (2026-04-14)** — all 8 phases merged; plan kept in place (matches `plans/docker-kubernetes.md` convention).
+> **Status: COMPLETE** — shipped 2026-04-14.
+
+All 8 phases merged; plan kept in place.
 
 > **Objective:** (1) Let a session owner invite friends, and let those friends log what *they* ate against the shared session. (2) Replace the arbitrary 1–10 fill-factor slider and 1–100 appetite-budget with a **grams-based, research-backed** quantitative model. (3) Let foods be logged by **grams** in addition to units. (4) Block `/result` while the session is still active. (5) Delete the `/import` page now that `session_records.restaurant_id` is nullable (migration `0003`).
 

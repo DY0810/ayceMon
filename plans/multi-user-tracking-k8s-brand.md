@@ -1,5 +1,7 @@
 # ayceMon — Multi-user Tracking, K8s Hardening & Brand Refresh
 
+> **Status: COMPLETE** — shipped 2026-04-20.
+
 > **Objective:** Close the collaborative-tracking gaps (per-person cost, activity feed, join notifications, branded email), harden the existing Kubernetes deployment so it runs end-to-end locally and in production, and refresh the brand with a new logo and accent palette without breaking the monochrome-data discipline.
 
 **Generated:** 2026-04-18 · **Mode:** branch-per-step (git + gh available)
