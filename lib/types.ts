@@ -223,3 +223,20 @@ export interface LiveContributor {
   unitCount: number;
   lastLoggedAt: string | null; // ISO
 }
+
+/** Live per-entry event for an in-flight shared session, joined with
+ *  item.name and resolved displayName. Derived on every poll by
+ *  `aggregateActivity`; never stored. Sorted reverse-chronological (newest
+ *  first) with entryId as tie-breaker for same-timestamp entries. The
+ *  `/tracker` activity feed (Phase 6) consumes this as a capped window
+ *  (most recent 20). */
+export interface LiveActivityEvent {
+  entryId: string;
+  userId: UserId;
+  displayName: string;
+  itemId: ItemId;
+  itemName: string;
+  units: number;
+  grams: number | null;
+  loggedAt: string; // ISO
+}
