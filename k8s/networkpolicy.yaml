@@ -85,6 +85,21 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
+    # GKE Autopilot enables NodeLocal DNSCache by default — pod
+    # resolv.conf nameserver is 169.254.20.10, a link-local IP served
+    # by a DaemonSet pod on each node. The kube-dns pod-selector above
+    # doesn't match node-local-dns, so an ipBlock rule is required or
+    # every DNS lookup times out with EAI_AGAIN. (169.254.20.10 is
+    # hard-coded by GKE's NodeLocal DNS controller; it doesn't change
+    # across upgrades.)
+    - to:
+        - ipBlock:
+            cidr: 169.254.20.10/32
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
 ---
 # cert-manager ACME HTTP-01 solver. cert-manager creates a transient
 # Pod + Ingress at `/.well-known/acme-challenge/<token>` for each cert
