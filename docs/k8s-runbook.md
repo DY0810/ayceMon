@@ -748,6 +748,32 @@ don't match `app=aycemon`, so `default-deny-all` blocks it. Cert
 issuance and renewal stall silently at self-check. The allow-rule is
 load-bearing even though the pod only lives for minutes at a time.
 
+### NodeLocal DNSCache egress
+
+GKE Autopilot sets each pod's resolv.conf nameserver to
+`169.254.20.10` — a link-local IP served by a per-node
+`node-local-dns` DaemonSet. The cluster's kube-dns Service
+(`34.118.x.x`) is NOT what pods actually query. Because NetworkPolicy
+v1 can't match link-local IPs via `podSelector`, the `aycemon-netpol`
+egress rules include an explicit `ipBlock: 169.254.20.10/32` for
+UDP/TCP 53. Without it, every external DNS lookup fails with
+`EAI_AGAIN`. The Supabase auth path breaks first (JWK Set fetch during
+login), while `/api/health` keeps returning 200 because it does no
+outbound work. If you see an ayceMon cluster where `/api/health` is
+green but login hangs → check this rule.
+
+### Next.js request.url and reverse proxies
+
+The `/auth/confirm` route derives redirect URLs from
+`X-Forwarded-Host`/`X-Forwarded-Proto` rather than `request.url`.
+Next.js standalone (Docker / K8s) builds `request.url` from the
+container's bind address (HOSTNAME + PORT env vars) — on our pods
+that's `0.0.0.0:3000`. Without proxy-header awareness, confirmation
+emails redirect users to `https://0.0.0.0:3000/login?...` which
+browsers refuse to follow. Keep any new route that redirects users
+through the same `externalOrigin(request)` helper in
+`app/auth/confirm/route.ts`.
+
 ### Trial expiry
 
 Activated 2026-04-21, expires 2026-07-20. Default behavior at expiry:
