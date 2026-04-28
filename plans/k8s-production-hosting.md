@@ -50,7 +50,7 @@ Budget a **~2.5-hour evening.** Most time is waiting on the LB to provision and 
 
 ### Tasks
 
-1. **Pick the Google account** — recommend **personal Gmail** for the trial. If you decide to use `dongyeop@usc.edu`, try it first; if the billing console shows "Trial not available for your organization," switch to Gmail without burning time on org-policy debugging.
+1. **Pick the Google account** — recommend **personal Gmail** for the trial. If you decide to use a `.edu` org account, try it first; if the billing console shows "Trial not available for your organization," switch to Gmail without burning time on org-policy debugging.
 
 2. **Activate the $300 free trial:**
    - Go to https://console.cloud.google.com
