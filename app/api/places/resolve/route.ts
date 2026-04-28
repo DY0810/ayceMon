@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 
+import { requireUserForApi } from "@/lib/auth/require-user";
 import { fetchPlaceDetails, PlacesApiError } from "@/lib/places/resolve";
 import { getClientIp, rateLimit } from "@/lib/places/rate-limit";
 
@@ -9,6 +10,9 @@ interface ResolveBody {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireUserForApi();
+  if (!auth.ok) return auth.response;
+
   const ip = getClientIp(request);
   const limit = await rateLimit(ip);
   if (!limit.ok) {

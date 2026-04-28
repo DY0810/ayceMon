@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 
+import { requireUserForApi } from "@/lib/auth/require-user";
 import {
   fetchAutocomplete,
   PlacesApiError,
@@ -13,6 +14,12 @@ interface AutocompleteBody {
   sessionToken?: unknown;
   bias?: unknown;
 }
+
+// RFC 4122 UUID format. Google Places groups Autocomplete + Details into one
+// billable session via this token; if a buggy/abusive client randomizes it
+// per request we lose session-bundled pricing. Validate format here.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseBias(raw: unknown): LocationBias | undefined {
   if (!raw || typeof raw !== "object") return undefined;
@@ -38,6 +45,9 @@ function parseBias(raw: unknown): LocationBias | undefined {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireUserForApi();
+  if (!auth.ok) return auth.response;
+
   const ip = getClientIp(request);
   const limit = await rateLimit(ip);
   if (!limit.ok) {
@@ -73,6 +83,12 @@ export async function POST(request: Request) {
   if (!sessionToken) {
     return NextResponse.json(
       { error: "missing_session_token" },
+      { status: 400 },
+    );
+  }
+  if (!UUID_RE.test(sessionToken)) {
+    return NextResponse.json(
+      { error: "invalid_session_token" },
       { status: 400 },
     );
   }

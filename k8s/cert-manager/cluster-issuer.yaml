@@ -27,7 +27,7 @@ spec:
     # MUST be replaced before `kubectl apply`. Let's Encrypt sends expiry
     # warnings (30/14/7 days) and rate-limit notices to this address — if
     # it is unmonitored, the first signal of trouble is an outage.
-    email: dongyeop0810@gmail.com
+    email: ops@aycemon.app
     server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-staging-account
@@ -59,7 +59,7 @@ metadata:
   name: letsencrypt-prod
 spec:
   acme:
-    email: dongyeop0810@gmail.com
+    email: ops@aycemon.app
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-prod-account

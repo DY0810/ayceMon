@@ -54,3 +54,6 @@ supabase/.branches/
 
 # local editor settings
 .ide/settings.local.json
+
+# internal handoff documents (not for public repo)
+handoff/
